@@ -1,7 +1,7 @@
 """SQLite storage: users, equipment and operating logs (no Streamlit code here)."""
 import hashlib, hmac, json, os, re, secrets, sqlite3
 from contextlib import closing
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "plantpulse.db"
@@ -67,6 +67,17 @@ def init_db():
                 reference REAL NOT NULL,
                 app_value REAL NOT NULL,
                 notes TEXT);
+            CREATE TABLE IF NOT EXISTS maintenance_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+                note_date TEXT NOT NULL,
+                note TEXT NOT NULL,
+                created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS operating_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
@@ -195,3 +206,95 @@ def list_validation(user_id):
 def delete_validation(user_id, entry_id):
     _, _, n = _run("DELETE FROM validation_log WHERE id = ? AND user_id = ?", (entry_id, user_id))
     return n > 0
+
+
+# ---------------------------------------------------------------- maintenance history
+MAX_NOTE = 2000
+
+
+def _parse_date(value):
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        d = value
+    else:
+        try:
+            d = date.fromisoformat(str(value).strip())
+        except ValueError:
+            raise DBError("Please enter a valid date.")
+    if d.year < 1990:
+        raise DBError("The date is too far in the past. Check the year.")
+    if d > date.today() + timedelta(days=366):
+        raise DBError("The date is more than a year in the future. Check the year.")
+    return d
+
+
+def _owns(conn, user_id, equipment_id):
+    return conn.execute("SELECT 1 FROM equipment WHERE id = ? AND user_id = ?", (equipment_id, user_id)).fetchone() is not None
+
+
+def add_maintenance(user_id, equipment_id, note_date, note):
+    """Add a dated note to the maintenance history of this user's equipment. Returns the note id."""
+    note = (note or "").strip()
+    if not note:
+        raise DBError("Please type a note.")
+    if len(note) > MAX_NOTE:
+        raise DBError(f"The note is too long (the limit is {MAX_NOTE} characters).")
+    d = _parse_date(note_date)
+    with closing(_connect()) as conn:
+        with conn:
+            if not _owns(conn, user_id, equipment_id):
+                raise DBError("Equipment not found.")
+            cur = conn.execute("INSERT INTO maintenance_log (equipment_id,note_date,note,created_at) VALUES (?,?,?,?)",
+                               (equipment_id, d.isoformat(), note, _now()))
+            return cur.lastrowid
+
+
+def list_maintenance(user_id, equipment_id):
+    rows, _, _ = _run("""SELECT m.* FROM maintenance_log m JOIN equipment e ON e.id = m.equipment_id
+                         WHERE e.id = ? AND e.user_id = ? ORDER BY m.note_date DESC, m.id DESC""", (equipment_id, user_id))
+    return [dict(r) for r in rows]
+
+
+def list_all_maintenance(user_id):
+    """Every note of every piece of equipment of this user, with the equipment tag."""
+    rows, _, _ = _run("""SELECT e.tag, e.eq_type, m.id, m.equipment_id, m.note_date, m.note FROM maintenance_log m
+                         JOIN equipment e ON e.id = m.equipment_id WHERE e.user_id = ? ORDER BY e.tag, m.note_date DESC, m.id DESC""", (user_id,))
+    return [dict(r) for r in rows]
+
+
+def delete_maintenance(user_id, note_id):
+    _, _, n = _run("DELETE FROM maintenance_log WHERE id = ? AND equipment_id IN (SELECT id FROM equipment WHERE user_id = ?)", (note_id, user_id))
+    return n > 0
+
+
+# ---------------------------------------------------------------- 'keep me signed in' sessions
+SESSION_DAYS = 14
+
+
+def _hash_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_session(user_id, days=SESSION_DAYS):
+    """Create a sign-in token. Only its hash is stored, so a copy of the database cannot be used to sign in."""
+    token = secrets.token_urlsafe(32)
+    now = datetime.now()
+    _run("DELETE FROM sessions WHERE expires_at <= ?", (now.isoformat(timespec="seconds"),))
+    _run("INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)",
+         (_hash_token(token), user_id, now.isoformat(timespec="seconds"), (now + timedelta(days=days)).isoformat(timespec="seconds")))
+    return token
+
+
+def user_from_session(token):
+    """The user a valid, unexpired token belongs to, or None."""
+    if not isinstance(token, str) or not 20 <= len(token) <= 200:
+        return None
+    rows, _, _ = _run("""SELECT u.id, u.name, u.email, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+                         WHERE s.token_hash = ? AND s.expires_at > ?""", (_hash_token(token), datetime.now().isoformat(timespec="seconds")))
+    return dict(rows[0]) if rows else None
+
+
+def delete_session(token):
+    if isinstance(token, str) and token:
+        _run("DELETE FROM sessions WHERE token_hash = ?", (_hash_token(token),))
