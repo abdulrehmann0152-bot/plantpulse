@@ -195,7 +195,7 @@ def _day(ts):
     return pd.Timestamp(ts).strftime("%d %b %Y")
 
 
-def explain_hx(res, params):
+def explain_hx(res, params, warn=10.0, crit=25.0):
     ok = res[res["error"] == ""]
     if len(ok) < 3:
         return ["Not enough valid readings yet. Load or upload at least 3 readings to get an explanation."]
@@ -221,10 +221,10 @@ def explain_hx(res, params):
                f"Today's duty is {now['q_kw']:,.0f} kW, so about {now['q_expected_kw'] - now['q_kw']:,.0f} kW ({now['shortfall_pct']:.1f}%) is being lost.")
     if ok["mismatch_pct"].tail(5).mean() > 5:
         out.append("**Data quality.** Hot-side and cold-side duties disagree by more than 5% in recent readings, so check the flow meters and thermometers before trusting the U value.")
-    if now["u_loss_pct"] > 25:
-        out.append("**What to do.** The loss is beyond the 25% screening limit. Plan cleaning or inspection, then confirm U recovers afterwards.")
-    elif now["u_loss_pct"] > 10:
-        out.append("**What to do.** The loss is beyond the 10% watch limit. Keep monitoring and plan cleaning before it reaches 25%.")
+    if now["u_loss_pct"] > crit:
+        out.append(f"**What to do.** The loss is beyond your {crit:g}% alarm level. Plan cleaning or inspection, then confirm U recovers afterwards.")
+    elif now["u_loss_pct"] > warn:
+        out.append(f"**What to do.** The loss is beyond your {warn:g}% warning level. Keep monitoring and plan cleaning before it reaches {crit:g}%.")
     else:
         out.append("**What to do.** Performance is within limits. Keep logging readings so a future change shows up early.")
     return out

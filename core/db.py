@@ -73,6 +73,11 @@ def init_db():
                 note_date TEXT NOT NULL,
                 note TEXT NOT NULL,
                 created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS alert_settings (
+                equipment_id INTEGER PRIMARY KEY REFERENCES equipment(id) ON DELETE CASCADE,
+                u_warn_pct REAL NOT NULL,
+                u_crit_pct REAL NOT NULL,
+                updated_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -298,3 +303,41 @@ def user_from_session(token):
 def delete_session(token):
     if isinstance(token, str) and token:
         _run("DELETE FROM sessions WHERE token_hash = ?", (_hash_token(token),))
+
+
+# ---------------------------------------------------------------- alert settings (per piece of equipment)
+DEFAULT_U_WARN, DEFAULT_U_CRIT = 10.0, 25.0
+
+
+def _check_levels(warn, crit):
+    if isinstance(warn, bool) or isinstance(crit, bool) or not all(isinstance(v, (int, float)) and v == v for v in (warn, crit)):
+        raise DBError("The warning and alarm levels must be numbers.")
+    if warn <= 0:
+        raise DBError("The warning level must be above 0%.")
+    if crit <= warn:
+        raise DBError("The alarm level must be higher than the warning level.")
+    if crit > 95:
+        raise DBError("The alarm level cannot be above 95% loss.")
+
+
+def get_alert_settings(user_id, equipment_id):
+    """The user's own warning and alarm levels for the loss of U of this equipment, or the defaults (10% and 25%)."""
+    rows, _, _ = _run("""SELECT a.u_warn_pct, a.u_crit_pct FROM alert_settings a JOIN equipment e ON e.id = a.equipment_id
+                         WHERE e.id = ? AND e.user_id = ?""", (equipment_id, user_id))
+    if rows:
+        return {"u_warn_pct": rows[0]["u_warn_pct"], "u_crit_pct": rows[0]["u_crit_pct"], "custom": True}
+    return {"u_warn_pct": DEFAULT_U_WARN, "u_crit_pct": DEFAULT_U_CRIT, "custom": False}
+
+
+def set_alert_settings(user_id, equipment_id, warn, crit):
+    _check_levels(warn, crit)
+    with closing(_connect()) as conn:
+        with conn:
+            if not _owns(conn, user_id, equipment_id):
+                raise DBError("Equipment not found.")
+            conn.execute("INSERT OR REPLACE INTO alert_settings (equipment_id,u_warn_pct,u_crit_pct,updated_at) VALUES (?,?,?,?)",
+                         (equipment_id, float(warn), float(crit), _now()))
+
+
+def reset_alert_settings(user_id, equipment_id):
+    _run("DELETE FROM alert_settings WHERE equipment_id IN (SELECT id FROM equipment WHERE id = ? AND user_id = ?)", (equipment_id, user_id))

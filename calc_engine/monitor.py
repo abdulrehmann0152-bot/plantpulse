@@ -19,7 +19,19 @@ HX_COLUMNS = ["timestamp", "m_hot_kg_s", "cp_hot_kj_kgk", "t_hot_in_c", "t_hot_o
               "m_cold_kg_s", "cp_cold_kj_kgk", "t_cold_in_c", "t_cold_out_c"]
 PUMP_COLUMNS = ["timestamp", "flow_m3_h", "head_m"]
 PUMP_OPTIONAL = ["water_temp_c"]
-WARN_LOSS, CRIT_LOSS, MISMATCH_TOL = 10.0, 25.0, 5.0
+WARN_LOSS, CRIT_LOSS, MISMATCH_TOL = 10.0, 25.0, 5.0      # defaults: the user can set their own per exchanger
+
+
+def check_thresholds(warn, crit):
+    """Validate a warning level and an alarm level for the loss of U, in percent."""
+    if not all(isinstance(v, (int, float)) and v == v for v in (warn, crit)):
+        raise InputError("The warning and alarm levels must be numbers.")
+    if warn <= 0:
+        raise InputError("The warning level must be above 0%.")
+    if crit <= warn:
+        raise InputError("The alarm level must be higher than the warning level.")
+    if crit > 95:
+        raise InputError("The alarm level cannot be above 95% loss.")
 
 
 # ---------------------------------------------------------------- heat exchanger twin
@@ -69,27 +81,29 @@ def analyze_hx(df, params):
     return pd.DataFrame(rows)
 
 
-def hx_status(results):
+def hx_status(results, warn=WARN_LOSS, crit=CRIT_LOSS):
     """('ok'|'warning'|'critical'|'nodata', text) from the latest valid reading."""
+    check_thresholds(warn, crit)
     ok = results[results["error"] == ""]
     if ok.empty:
         return "nodata", "No valid readings yet."
     loss = ok.iloc[-1]["u_loss_pct"]
-    if loss > CRIT_LOSS:
-        return "critical", f"U is {loss:.0f}% below clean. Cleaning is needed."
-    if loss > WARN_LOSS:
-        return "warning", f"U is {loss:.0f}% below clean. Watch the trend and plan cleaning."
-    return "ok", f"U is within {WARN_LOSS:.0f}% of clean. Exchanger looks healthy."
+    if loss > crit:
+        return "critical", f"U is {loss:.0f}% below clean, past your alarm level of {crit:g}%. Cleaning is needed."
+    if loss > warn:
+        return "warning", f"U is {loss:.0f}% below clean, past your warning level of {warn:g}%. Watch the trend and plan cleaning."
+    return "ok", f"U is within {warn:g}% of clean. Exchanger looks healthy."
 
 
 def _fmt(ts):
     return pd.Timestamp(ts).strftime("%Y-%m-%d")
 
 
-def alerts_hx(results):
+def alerts_hx(results, warn=WARN_LOSS, crit=CRIT_LOSS):
+    check_thresholds(warn, crit)
     out = []
     ok = results[results["error"] == ""]
-    for level, sev, name in ((WARN_LOSS, "warning", "10%"), (CRIT_LOSS, "critical", "25%")):
+    for level, sev, name in ((warn, "warning", f"{warn:g}%"), (crit, "critical", f"{crit:g}%")):
         hit = ok[ok["u_loss_pct"] > level]
         if not hit.empty:
             out.append({"first_seen": _fmt(hit.iloc[0]["timestamp"]), "severity": sev,

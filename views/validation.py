@@ -3,7 +3,9 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 from core import db, validation as val
-from core.validation_report import build_validation_pdf
+import zlib
+
+from core.validation_report import build_certificate, build_validation_pdf
 
 user = st.session_state["user"]
 st.title("✅ Validation Log")
@@ -79,6 +81,27 @@ try:
                        file_name=f"PlantPulse_validation_note_{date.today():%Y%m%d}.pdf")
 except Exception as e:  # never let the export break the page
     c2.error(f"The PDF could not be created: {e}")
+
+with st.expander("Validation certificate (a PDF to hand to your supervisor)"):
+    st.caption("Lists each comparison with its source, the textbook answer, the PlantPulse answer and the percentage difference, with space for signatures. "
+               "Entries outside the 5% tolerance are left out unless you add them.")
+    labels = {e["id"]: f"{e['created_at'][:10]}  |  {e['quantity']}  |  {e['source']}  |  {val.fmt_diff(e['diff_pct'])}%  |  {e['verdict']}" for e in entries}
+    within = [e["id"] for e in entries if e["verdict"] != "Check"]
+    sig = zlib.crc32("_".join(str(e["id"]) for e in entries).encode()) & 0xFFFF              # a new set of entries starts with a fresh default selection
+    chosen = st.multiselect("Entries to include", list(labels), default=within, format_func=labels.get, key=f"vl_cert_pick_{sig}")
+    project = st.text_input("Project or course (optional)", key="vl_cert_project", placeholder="e.g. Heat and Mass Transfer, semester project")
+    outside = [e for e in entries if e["id"] in chosen and e["verdict"] == "Check"]
+    if outside:
+        st.warning(f"{len(outside)} selected entr{'y is' if len(outside) == 1 else 'ies are'} outside the 5% tolerance. The certificate marks them as outside tolerance; it does not confirm them.")
+    left_out = len(entries) - len(within)
+    if left_out and len(chosen) == len(within):
+        st.caption(f"{left_out} entr{'y' if left_out == 1 else 'ies'} outside the tolerance {'is' if left_out == 1 else 'are'} not selected.")
+    picked = [e for e in entries if e["id"] in chosen]
+    try:
+        st.download_button("Generate Validation Certificate (PDF)", build_certificate(picked, user, project), mime="application/pdf", key="vl_cert", icon="📄",
+                           disabled=not picked, file_name=f"PlantPulse_validation_certificate_{date.today():%Y%m%d}.pdf")
+    except Exception as e:  # never let the certificate break the page
+        st.error(f"The certificate could not be created: {e}")
 
 with st.expander("Remove an entry"):
     labels = {f"{e['created_at'][:10]}: {e['quantity']} ({e['source']})": e["id"] for e in entries}

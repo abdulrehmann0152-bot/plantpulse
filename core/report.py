@@ -155,11 +155,13 @@ ACTIONS = {
 }
 
 
-def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=False):
+def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=False, thresholds=(10.0, 25.0), events=None, compress=True):
     """Return the PDF as bytes. res: analysed DataFrame (rows with errors allowed)."""
     good = res[res["error"] == ""]
     p = eq["params"]
+    warn, crit = thresholds
     pdf = _PDF(format="A4")
+    pdf.set_compression(compress)
     pdf.set_margins(15, 20, 15)
     pdf.set_auto_page_break(True, margin=16)
     pdf.add_page()
@@ -213,7 +215,7 @@ def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=Fa
         y0 = pdf.get_y()
         _chart(pdf, 15, y0, 180, 62, "Overall U over time",
                [("Observed U (W/m2K)", ts, list(tg["u"]), TEAL, False)],
-               [(uc, GRN, "Clean U"), (uc * 0.9, AMB, "10% loss (watch)"), (uc * 0.75, RED, "25% loss (act)")])
+               [(uc, GRN, "Clean U"), (uc * (1 - warn / 100), AMB, f"{warn:g}% loss (watch)"), (uc * (1 - crit / 100), RED, f"{crit:g}% loss (act)")])
         y0 += 64
         _chart(pdf, 15, y0, 180, 62, "Digital twin: cold outlet temperature",
                [("Observed (deg C)", ts, list(tg["tc_out_observed"]), RED, False), ("Twin, clean exchanger (deg C)", ts, list(tg["tc_out_expected"]), GRN, True)])
@@ -256,6 +258,13 @@ def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=Fa
             _para(pdf, f"- {a}")
         pdf.ln(2)
 
+    if events:
+        if pdf.get_y() > 230:
+            pdf.add_page()
+        _heading(pdf, "Notes on the data")
+        for ev in events[:12]:
+            _para(pdf, f"- {ev['note_date']}: {ev['note'][:300]}", 8.5)
+        pdf.ln(2)
     if pdf.get_y() > 225:
         pdf.add_page()
     _heading(pdf, "Method and assumptions")
@@ -264,7 +273,7 @@ def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=Fa
         _para(pdf, f"Equipment: area {p['area_m2']:g} m2, clean U {p['u_clean']:g} W/m2K, {arr}.", 8.5)
         _para(pdf, "Heat duty Q = m Cp dT (average of hot and cold side); U = Q / (A F LMTD); fouling resistance Rf = 1/U - 1/U_clean. "
                    "The digital twin predicts the clean exchanger's outlet temperatures with the effectiveness-NTU method at the same flows and inlet "
-                   "temperatures. Alerts: U more than 10% (watch) or 25% (act) below clean; hot/cold duty mismatch above 5% flags instrument problems.", 8.5)
+                   "temperatures. Alerts: U more than " + f"{warn:g}% (watch) or {crit:g}% (act) below clean; hot/cold duty mismatch above 5% flags instrument problems.", 8.5)
     else:
         _para(pdf, f"Equipment: pipe {p['d_mm']:g} mm x {p['length_m']:g} m, {p['material']}, fittings K = {p['sum_k']:g}, static head {p['static_m']:g} m.", 8.5)
         _para(pdf, "System curve H = H_static + (f L/D + K) v^2/2g with Swamee-Jain friction factor; pump curve is a quadratic fitted to three datasheet points. "

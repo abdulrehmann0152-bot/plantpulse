@@ -72,7 +72,8 @@ with tab3:
             else:
                 df = mon.df_from_logs(logs, eq["eq_type"])
                 if eq["eq_type"] == "heat_exchanger":
-                    lines = tutor.explain_hx(mon.analyze_hx(df, eq["params"]), eq["params"])
+                    cfg = db.get_alert_settings(user["id"], eq["id"])
+                    lines = tutor.explain_hx(mon.analyze_hx(df, eq["params"]), eq["params"], cfg["u_warn_pct"], cfg["u_crit_pct"])
                 else:
                     lines = tutor.explain_pump(mon.analyze_pump(df, eq["params"]), eq["params"])
                 if mon.has_demo_rows(df):
