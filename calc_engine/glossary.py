@@ -146,7 +146,8 @@ def search(query="", category=None):
         return sorted(pool, key=lambda t: t["term"].lower())
     scored = []
     for t in pool:
-        names = [t["term"].lower()] + [a.lower() for a in t["aliases"]]
+        full = t["term"].lower()
+        names = [full, full.split(" (")[0]] + [a.lower() for a in t["aliases"]]      # 'LMTD (Log Mean ...)' also answers to just 'LMTD'
         if any(n == q for n in names):
             rank = 0
         elif any(n.startswith(q) for n in names):

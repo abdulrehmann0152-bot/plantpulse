@@ -10,6 +10,7 @@ import pandas as pd
 
 from . import heat_exchanger as hx
 from . import pump_pipe as pp
+from . import solver as sv
 
 # --------------------------------------------------------------------------- concept library
 CONCEPTS = [
@@ -110,7 +111,9 @@ def concepts_for(topic=None):
 
 # --------------------------------------------------------------------------- practice problems
 PROBLEM_TYPES = {"hx_lmtd": "Heat exchanger: LMTD", "hx_u": "Heat exchanger: duty and U value",
-                 "foul_rf": "Fouling resistance", "pipe_dp": "Pipe pressure drop", "pump_power": "Pump power"}
+                 "foul_rf": "Fouling resistance", "pipe_dp": "Pipe pressure drop", "pump_power": "Pump power",
+                 "hx_lmtd_counter": "Heat exchanger: LMTD (counter-flow only)", "darcy_head": "Darcy-Weisbach friction loss",
+                 "npsh": "NPSH and cavitation"}
 
 
 def _temps(rng):
@@ -127,7 +130,12 @@ def _ans(key, label, unit, value, tol=0.02):
 
 
 def make_problem(kind, seed):
-    """Deterministic practice problem: same (kind, seed) always gives the same problem."""
+    """Deterministic practice problem: same (kind, seed) always gives the same problem. kind='random' picks the type from the seed.
+
+    Each problem has a prompt, answers (with tolerances), worked steps, three progressive hints and the glossary terms it uses.
+    """
+    if kind == "random":
+        kind = random.Random(f"random-{seed}").choice(list(PROBLEM_TYPES))
     rng = random.Random(f"{kind}-{seed}")
     if kind == "hx_lmtd":
         thi, tho, tci, tco = _temps(rng)
@@ -138,7 +146,23 @@ def make_problem(kind, seed):
                 "answers": [_ans("counter", "LMTD, counter-flow", "K", lc), _ans("parallel", "LMTD, parallel flow", "K", lp)],
                 "steps": [f"Counter-flow: ΔT₁ = {thi} − {tco} = {thi - tco} K, ΔT₂ = {tho} − {tci} = {tho - tci} K → LMTD = ({thi - tco} − {tho - tci}) / ln({thi - tco}/{tho - tci}) = {lc:.2f} K",
                           f"Parallel flow: ΔT₁ = {thi} − {tci} = {thi - tci} K, ΔT₂ = {tho} − {tco} = {tho - tco} K → LMTD = {lp:.2f} K",
-                          "Counter-flow gives the larger LMTD for the same terminal temperatures."]}
+                          "Counter-flow gives the larger LMTD for the same terminal temperatures."],
+                "hints": ["Counter-flow: pair the hot inlet with the cold outlet, and the hot outlet with the cold inlet. Parallel flow: pair the two inlets together and the two outlets together.",
+                          "LMTD = (ΔT₁ − ΔT₂) / ln(ΔT₁ / ΔT₂), where ΔT₁ and ΔT₂ are the temperature differences at the two ends of the exchanger.",
+                          f"Counter-flow differences: {thi - tco} K and {tho - tci} K. Parallel-flow differences: {thi - tci} K and {tho - tco} K."],
+                "terms": ["lmtd", "counter_flow", "parallel_flow"]}
+    if kind == "hx_lmtd_counter":
+        thi, tho, tci, tco = _temps(rng)
+        lc = hx.lmtd(thi, tho, tci, tco, "counter")
+        return {"kind": kind, "title": PROBLEM_TYPES[kind],
+                "prompt": f"Calculate the LMTD for a counter-flow exchanger with **Hot In: {thi} °C**, **Hot Out: {tho} °C**, **Cold In: {tci} °C**, **Cold Out: {tco} °C**.",
+                "answers": [_ans("lmtd", "LMTD, counter-flow", "K", lc)],
+                "steps": [f"ΔT₁ = T(hot in) − T(cold out) = {thi} − {tco} = {thi - tco} K", f"ΔT₂ = T(hot out) − T(cold in) = {tho} − {tci} = {tho - tci} K",
+                          f"LMTD = (ΔT₁ − ΔT₂) / ln(ΔT₁/ΔT₂) = ({thi - tco} − {tho - tci}) / ln({thi - tco}/{tho - tci}) = {lc:.2f} K"],
+                "hints": ["In a counter-flow exchanger the fluids move in opposite directions, so the hot inlet end meets the cold OUTLET.",
+                          "ΔT₁ = T(hot in) − T(cold out) and ΔT₂ = T(hot out) − T(cold in). Then LMTD = (ΔT₁ − ΔT₂) / ln(ΔT₁/ΔT₂).",
+                          f"The two end differences are {thi - tco} K and {tho - tci} K."],
+                "terms": ["lmtd", "counter_flow"]}
     if kind == "hx_u":
         thi, tho, tci, tco = _temps(rng)
         m, area = rng.choice([1.0, 1.5, 2.0, 2.5, 3.0]), rng.choice([8, 10, 12, 15, 20])
@@ -147,16 +171,23 @@ def make_problem(kind, seed):
                 "prompt": f"Hot water (Cp = 4.18 kJ/kg·K) flows at **{m} kg/s** and cools from **{thi} °C to {tho} °C**. The cold stream goes from "
                           f"**{tci} °C to {tco} °C**. The exchanger is counter-flow with **{area} m²** of area. Find the heat duty, the LMTD and U.",
                 "answers": [_ans("q", "Heat duty", "kW", q), _ans("lmtd", "LMTD", "K", lm), _ans("u", "Overall U", "W/m²K", u)],
-                "steps": [f"Q = m·Cp·ΔT = {m} × 4.18 × {thi - tho} = {q:.1f} kW",
-                          f"LMTD (counter-flow) = {lm:.2f} K",
-                          f"U = Q / (A·LMTD) = {q * 1000:,.0f} / ({area} × {lm:.2f}) = {u:,.1f} W/m²K"]}
+                "steps": [f"Q = m·Cp·ΔT = {m} × 4.18 × {thi - tho} = {q:.1f} kW", f"LMTD (counter-flow) = {lm:.2f} K",
+                          f"U = Q / (A·LMTD) = {q * 1000:,.0f} / ({area} × {lm:.2f}) = {u:,.1f} W/m²K"],
+                "hints": ["Start with the heat duty from the hot side: Q = m·Cp·(T_in − T_out). With Cp in kJ/kg·K the duty comes out in kW.",
+                          "Next find the counter-flow LMTD from the four temperatures. Finally U = Q / (A·LMTD), with Q converted to watts.",
+                          f"Check: the heat duty is close to {round(q, -1):.0f} kW."],
+                "terms": ["heat_duty", "lmtd", "overall_u"]}
     if kind == "foul_rf":
         uc, loss = rng.choice([800, 1000, 1200, 1500]), rng.choice([10, 15, 20, 25, 30, 35])
         uf = round(uc * (1 - loss / 100)); rf = hx.fouling_resistance(uf, uc); pct = (1 - uf / uc) * 100
         return {"kind": kind, "title": PROBLEM_TYPES[kind],
                 "prompt": f"A heat exchanger had a clean U of **{uc} W/m²K**. Today it measures **{uf} W/m²K**. Find the fouling resistance and the percentage loss in U.",
                 "answers": [_ans("rf", "Fouling resistance Rf", "m²K/W", rf), _ans("pct", "Loss in U", "%", pct)],
-                "steps": [f"Rf = 1/{uf} − 1/{uc} = {1 / uf:.6f} − {1 / uc:.6f} = {rf:.6f} m²K/W", f"Loss = (1 − {uf}/{uc}) × 100 = {pct:.1f} %"]}
+                "steps": [f"Rf = 1/{uf} − 1/{uc} = {1 / uf:.6f} − {1 / uc:.6f} = {rf:.6f} m²K/W", f"Loss = (1 − {uf}/{uc}) × 100 = {pct:.1f} %"],
+                "hints": ["The fouling resistance is the difference between the two thermal resistances, which are 1/U: Rf = 1/U(fouled) − 1/U(clean).",
+                          "Work in W/m²K, so Rf comes out in m²K/W. The loss in U is (1 − U(fouled)/U(clean)) × 100.",
+                          f"Rf is a small number, of the order of {rf:.0e} m²K/W."],
+                "terms": ["fouling_factor", "overall_u"]}
     if kind == "pipe_dp":
         t, d_mm, length, v = rng.choice([20, 30, 40]), rng.choice([50, 80, 100, 150]), rng.choice([50, 100, 200]), rng.choice([1.0, 1.5, 2.0, 2.5])
         d = d_mm / 1000.0; q_m3h = round(v * math.pi * d * d / 4 * 3600, 1)
@@ -170,7 +201,26 @@ def make_problem(kind, seed):
                 "steps": [f"v = Q/A = {q_m3h / 3600:.5f} / {math.pi * d * d / 4:.5f} = {r['v']:.3f} m/s",
                           f"Re = ρvD/μ = {rho:.1f} × {r['v']:.3f} × {d:.3f} / {mu:.6f} = {r['re']:,.0f}",
                           f"f (Swamee-Jain) = {r['f']:.4f}   (Moody chart readings within about 5% are fine)",
-                          f"ΔP = f (L/D) ρv²/2 = {r['f']:.4f} × ({length}/{d:.3f}) × {rho:.1f} × {r['v']:.3f}² / 2 = {r['dp'] / 1000:.2f} kPa"]}
+                          f"ΔP = f (L/D) ρv²/2 = {r['f']:.4f} × ({length}/{d:.3f}) × {rho:.1f} × {r['v']:.3f}² / 2 = {r['dp'] / 1000:.2f} kPa"],
+                "hints": ["Start with the velocity: v = Q/A, with Q in m³/s (divide m³/h by 3600) and A = πD²/4.",
+                          "Then Re = ρvD/μ. For turbulent flow use the Swamee-Jain equation for f with the relative roughness ε/D, then ΔP = f (L/D) ρ v²/2.",
+                          f"The velocity is about {r['v']:.2f} m/s."],
+                "terms": ["reynolds", "friction_factor", "darcy_weisbach"]}
+    if kind == "darcy_head":
+        d_mm, length, v, f = rng.choice([50, 80, 100, 150, 200]), rng.choice([20, 50, 100, 200, 500]), rng.choice([1.0, 1.5, 2.0, 2.5, 3.0]), rng.choice([0.015, 0.018, 0.02, 0.022, 0.025, 0.03])
+        d = d_mm / 1000.0
+        hf = f * (length / d) * v * v / (2 * 9.81); dp = 1000 * 9.81 * hf / 1000
+        return {"kind": kind, "title": PROBLEM_TYPES[kind],
+                "prompt": f"Water (ρ = 1000 kg/m³) flows at **{v} m/s** through a pipe of **{d_mm} mm** inside diameter and **{length} m** length. The Darcy friction factor is **{f}**. "
+                          "Find the friction head loss and the friction pressure drop. Take g = 9.81 m/s².",
+                "answers": [_ans("hf", "Friction head loss", "m", hf), _ans("dp", "Friction pressure drop", "kPa", dp)],
+                "steps": [f"L/D = {length} / {d:.3f} = {length / d:,.1f}", f"v²/2g = {v}² / (2 × 9.81) = {v * v / (2 * 9.81):.4f} m",
+                          f"h_f = f (L/D) v²/2g = {f} × {length / d:,.1f} × {v * v / (2 * 9.81):.4f} = {hf:.3f} m",
+                          f"ΔP = ρ g h_f = 1000 × 9.81 × {hf:.3f} = {dp * 1000:,.0f} Pa = {dp:.2f} kPa"],
+                "hints": ["Use the Darcy-Weisbach equation: h_f = f (L/D) v²/(2g).",
+                          "Use the diameter in metres (divide mm by 1000). The velocity is squared: v², not 2v. The pressure drop is ΔP = ρ g h_f.",
+                          f"L/D is {length / d:,.0f} and v²/2g is {v * v / (2 * 9.81):.3f} m."],
+                "terms": ["darcy_weisbach", "friction_factor", "head"]}
     if kind == "pump_power":
         q, h, eta = rng.choice([100, 150, 200, 250, 300]), rng.choice([15, 20, 25, 30, 40]), rng.choice([60, 65, 70, 75, 80])
         hyd = 1000 * 9.81 * (q / 3600) * h / 1000; sh = hyd / (eta / 100)
@@ -179,7 +229,35 @@ def make_problem(kind, seed):
                           "Take ρ = 1000 kg/m³ and g = 9.81 m/s². Find the hydraulic power and the shaft power.",
                 "answers": [_ans("hyd", "Hydraulic power", "kW", hyd), _ans("shaft", "Shaft power", "kW", sh)],
                 "steps": [f"Q = {q}/3600 = {q / 3600:.5f} m³/s", f"P_hyd = ρgQH = 1000 × 9.81 × {q / 3600:.5f} × {h} = {hyd * 1000:,.0f} W = {hyd:.2f} kW",
-                          f"P_shaft = P_hyd / η = {hyd:.2f} / {eta / 100:.2f} = {sh:.2f} kW"]}
+                          f"P_shaft = P_hyd / η = {hyd:.2f} / {eta / 100:.2f} = {sh:.2f} kW"],
+                "hints": ["Hydraulic power is the power the liquid receives from the pump: P = ρ g Q H, with Q in m³/s.",
+                          "The shaft power is larger because the pump is not perfectly efficient: P_shaft = P_hydraulic / η, with η as a fraction.",
+                          f"Convert the flow first: Q = {q} m³/h ÷ 3600 = {q / 3600:.5f} m³/s."],
+                "terms": ["hydraulic_power", "head"]}
+    if kind == "npsh":
+        t = rng.choice([20, 40, 60])
+        rho = round(pp.water_properties(t)[0], 1); pv = round(pp.water_vapor_pressure_kpa(t), 2)
+        level, hf = rng.choice([1.0, 1.5, 2.0, 2.5, 3.0, 4.0, -1.0, -2.0]), rng.choice([0.3, 0.5, 0.8, 1.2])
+        npsha = sv.npsh_check(0.0, "gauge", 101.325, level, hf, pv, rho, 1.0)["npsha"]
+        npshr = max(0.5, round(npsha * rng.choice([0.5, 0.7, 0.9, 1.0, 1.15]), 1))
+        r = sv.npsh_check(0.0, "gauge", 101.325, level, hf, pv, rho, npshr)
+        where = f"The liquid level is **{level:g} m above** the pump." if level > 0 else f"The liquid level is **{abs(level):g} m below** the pump (a suction lift)."
+        term = (101.325 - pv) * 1000 / (rho * 9.81)
+        verdict = {"ok": "NPSHa is above NPSHr + 0.5 m: no cavitation risk.",
+                   "risk": "NPSHa is above NPSHr but inside the 0.5 m safety margin: Cavitation Risk!",
+                   "cavitation": "NPSHa is below NPSHr: the pump will cavitate. Cavitation Risk!"}[r["status"]]
+        return {"kind": kind, "title": PROBLEM_TYPES[kind],
+                "prompt": f"Water at **{t} °C** (ρ = {rho} kg/m³, vapor pressure = {pv} kPa absolute) is pumped from a tank open to the atmosphere (101.325 kPa). {where} "
+                          f"The friction loss in the suction line is **{hf} m** and the pump needs **NPSHr = {npshr} m**. Take g = 9.81 m/s². "
+                          "Find NPSHa and the ratio NPSHa/NPSHr, then decide whether the pump will cavitate (use a 0.5 m safety margin).",
+                "answers": [_ans("npsha", "NPSH available", "m", r["npsha"]), _ans("ratio", "Ratio NPSHa/NPSHr", "-", r["npsha"] / npshr)],
+                "steps": [f"Pressure term = (P − Pv)/(ρg) = ({101.325} − {pv}) × 1000 / ({rho} × 9.81) = {term:.3f} m",
+                          f"NPSHa = {term:.3f} + ({level:g}) − {hf} = {r['npsha']:.3f} m",
+                          f"Ratio = {r['npsha']:.3f} / {npshr} = {r['npsha'] / npshr:.2f}", f"Compare: NPSHr + 0.5 m = {npshr + 0.5:g} m. {verdict}"],
+                "hints": ["NPSHa = (P_surface − P_vapor)/(ρ g) + z − h_f, where z is the height of the liquid surface above the pump (negative for a suction lift) and h_f is the suction line friction loss.",
+                          "The tank is open, so the surface pressure is atmospheric: 101.325 kPa absolute. Both pressures must be absolute, in kPa; multiply by 1000 to get Pa before dividing by ρg.",
+                          f"The pressure term (P − Pv)/(ρg) is {term:.2f} m."],
+                "terms": ["npsh", "cavitation", "vapor_pressure"]}
     raise ValueError(f"Unknown problem type: {kind}")
 
 
