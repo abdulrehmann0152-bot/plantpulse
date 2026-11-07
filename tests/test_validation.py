@@ -12,7 +12,7 @@ def temp_db(tmp_path, monkeypatch):
     db.init_db()
 
 def _user(email="a@uet.edu.pk"):
-    return db.create_user("Ali", email, "secret1", "student")
+    return db.create_user("Ali", email, "secret12", "student")
 
 def test_difference_and_verdict_thresholds():
     assert val.diff_pct(100, 101) == pytest.approx(1.0) and val.diff_pct(100, 98) == pytest.approx(-2.0)

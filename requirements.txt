@@ -5,3 +5,5 @@ scipy
 plotly
 fpdf2
 pytest
+psycopg[binary,pool]
+tzdata

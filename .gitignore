@@ -1,0 +1,12 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Data and secrets: these must NEVER be committed to GitHub
+*.db
+*.db-journal
+data/*.db
+.streamlit/secrets.toml

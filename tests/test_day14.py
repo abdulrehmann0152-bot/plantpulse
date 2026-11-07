@@ -23,7 +23,7 @@ def temp_db(tmp_path, monkeypatch):
 
 
 def _user(email="a@plant.pk"):
-    return db.create_user("Ali", email, "secret1", "engineer")
+    return db.create_user("Ali", email, "secret12", "engineer")
 
 
 def _pages(pdf):
@@ -94,7 +94,7 @@ def test_settings_default_save_replace_and_reset():
     assert db.get_alert_settings(u["id"], eid) == {"u_warn_pct": 7.5, "u_crit_pct": 20.0, "custom": True}
     db.set_alert_settings(u["id"], eid, 12, 30)                                   # saving again replaces, it does not add
     assert db.get_alert_settings(u["id"], eid)["u_warn_pct"] == 12.0
-    c = sqlite3.connect(os.environ["PLANTPULSE_DB"]); assert c.execute("SELECT COUNT(*) FROM alert_settings").fetchone()[0] == 1
+    assert db._run("SELECT COUNT(*) AS n FROM alert_settings")[0][0]["n"] == 1
     db.reset_alert_settings(u["id"], eid)
     assert db.get_alert_settings(u["id"], eid)["custom"] is False
 
@@ -119,7 +119,7 @@ def test_settings_validation_and_cascade():
             db.set_alert_settings(u["id"], eid, warn, crit)
     assert db.get_alert_settings(u["id"], eid)["custom"] is False
     db.set_alert_settings(u["id"], eid, 10, 25); db.delete_equipment(u["id"], eid)
-    assert sqlite3.connect(os.environ["PLANTPULSE_DB"]).execute("SELECT COUNT(*) FROM alert_settings").fetchone()[0] == 0
+    assert db._run("SELECT COUNT(*) AS n FROM alert_settings")[0][0]["n"] == 0
 
 # ====================================================================== report: thresholds and notes
 def _report(**kw):
@@ -224,7 +224,7 @@ def _app():
 
 def _register(email="e@plant.pk"):
     at = _app().run()
-    at.text_input(key="reg_name").input("Engr E"); at.text_input(key="reg_email").input(email); at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_name").input("Engr E"); at.text_input(key="reg_email").input(email); at.text_input(key="reg_pw").input("secret12")
     at.button(key="do_register").click().run()
     return at
 

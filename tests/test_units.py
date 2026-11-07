@@ -175,7 +175,7 @@ def test_heat_exchanger_calculator_page_units(temp_db):
 def test_equipment_form_stores_si_units_and_rejects_zero(temp_db):
     from core import db
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=60).run()
-    at.text_input(key="reg_name").input("U"); at.text_input(key="reg_email").input("u@plant.pk"); at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_name").input("U"); at.text_input(key="reg_email").input("u@plant.pk"); at.text_input(key="reg_pw").input("secret12")
     at.button(key="do_register").click().run()
     at.switch_page("views/equipment.py").run()
     at.selectbox(key="eq_tmpl").select("Cooling-water pump loop (example)").run()

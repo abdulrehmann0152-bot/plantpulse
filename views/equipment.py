@@ -19,7 +19,8 @@ if "eq_flash" in ss:
     st.success(ss.pop("eq_flash"))
 
 items = db.list_equipment(user["id"])
-notes = {e["id"]: db.list_maintenance(user["id"], e["id"]) for e in items}
+all_notes = db.list_all_maintenance(user["id"])                      # one query for every note, not one per piece of equipment
+notes = {e["id"]: [n for n in all_notes if n["equipment_id"] == e["id"]] for e in items}
 tags = [e["tag"] for e in items]
 
 
@@ -65,7 +66,6 @@ if items:
     c1, c2, _ = st.columns([2, 2, 3])
     c1.download_button("Export equipment list (CSV)", to_bytes(equipment_csv(items, notes)), file_name=f"PlantPulse_equipment_{date.today():%Y%m%d}.csv",
                        mime="text/csv", key="eq_export", icon="📥", help="One row per piece of equipment, with its data and its latest maintenance note. Opens in Excel.")
-    all_notes = db.list_all_maintenance(user["id"])
     c2.download_button("Export maintenance history (CSV)", to_bytes(maintenance_csv(all_notes)), file_name=f"PlantPulse_maintenance_{date.today():%Y%m%d}.csv",
                        mime="text/csv", key="eq_export_notes", icon="📥", disabled=not all_notes, help="Every maintenance note of every piece of equipment.")
 

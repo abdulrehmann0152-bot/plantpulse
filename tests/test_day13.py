@@ -19,11 +19,11 @@ def temp_db(tmp_path, monkeypatch):
 
 
 def _user(email="a@plant.pk"):
-    return db.create_user("Ali", email, "secret1", "engineer")
+    return db.create_user("Ali", email, "secret12", "engineer")
 
 
 def _count(table):
-    return sqlite3.connect(os.environ["PLANTPULSE_DB"]).execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    return db._run(f"SELECT COUNT(*) AS n FROM {table}")[0][0]["n"]
 
 
 # ====================================================================== maintenance history (storage)
@@ -67,9 +67,10 @@ def test_notes_disappear_with_their_equipment_and_stay_per_user():
 def test_equipment_and_notes_survive_a_restart():
     """A page refresh or an app restart starts a new session; the saved data is read back from the database file."""
     u = _user(); eid = db.add_equipment(u["id"], "heat_exchanger", "JH-01", "Juice station", HX); db.add_maintenance(u["id"], eid, "2026-10-10", "Cleaned tubes")
-    assert os.path.exists(os.environ["PLANTPULSE_DB"])
+    if db._target()[0] == "sqlite":
+        assert os.path.exists(os.environ["PLANTPULSE_DB"])                              # on PostgreSQL the data lives in the server instead
     db.init_db()                                                                      # what the app does at every start
-    assert db.authenticate("a@plant.pk", "secret1")["id"] == u["id"]
+    assert db.authenticate("a@plant.pk", "secret12")["id"] == u["id"]
     e = db.list_equipment(u["id"])[0]
     assert (e["tag"], e["location"], e["params"]) == ("JH-01", "Juice station", HX) and db.list_maintenance(u["id"], eid)[0]["note"] == "Cleaned tubes"
 
@@ -77,8 +78,8 @@ def test_equipment_and_notes_survive_a_restart():
 def test_session_token_signs_the_right_user_in_and_only_its_hash_is_stored():
     u = _user(); token = db.create_session(u["id"])
     assert db.user_from_session(token) == {"id": u["id"], "name": "Ali", "email": "a@plant.pk", "role": "engineer"}
-    raw = sqlite3.connect(os.environ["PLANTPULSE_DB"]).execute("SELECT token_hash FROM sessions").fetchall()
-    assert len(raw) == 1 and token not in raw[0][0] and len(raw[0][0]) == 64             # SHA-256 hex: a copy of the database cannot sign anyone in
+    raw = db._run("SELECT token_hash FROM sessions")[0]
+    assert len(raw) == 1 and token not in raw[0]["token_hash"] and len(raw[0]["token_hash"]) == 64             # SHA-256 hex: a copy of the database cannot sign anyone in
     other = db.create_session(u["id"]); assert other != token and db.user_from_session(other)["id"] == u["id"]
 
 def test_bad_expired_and_deleted_tokens_do_not_sign_in():
@@ -94,7 +95,7 @@ def test_expired_tokens_are_purged_and_deleting_a_user_removes_their_tokens():
     u = _user(); db.create_session(u["id"], days=-1); db.create_session(u["id"], days=-1)
     live = db.create_session(u["id"])                                                    # creating a session cleans out the expired ones
     assert _count("sessions") == 1
-    c = sqlite3.connect(os.environ["PLANTPULSE_DB"]); c.execute("PRAGMA foreign_keys=ON"); c.execute("DELETE FROM users WHERE id=?", (u["id"],)); c.commit()
+    db._run("DELETE FROM users WHERE id = ?", (u["id"],))
     assert db.user_from_session(live) is None
 
 # ====================================================================== cookie page
@@ -154,7 +155,7 @@ def _app():
     return AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=60)
 
 def _register(at, email="e@plant.pk", keep=False):
-    at.text_input(key="reg_name").input("Engr E"); at.text_input(key="reg_email").input(email); at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_name").input("Engr E"); at.text_input(key="reg_email").input(email); at.text_input(key="reg_pw").input("secret12")
     if keep:
         at.checkbox(key="keep_up").check()
     at.button(key="do_register").click().run()
@@ -277,7 +278,7 @@ def test_no_token_without_the_checkbox_and_none_for_guests():
 def test_log_in_with_the_checkbox_creates_a_token_too():
     first = _register(_app().run(), "l@plant.pk")
     first.button(key="logout").click().run()
-    first.text_input(key="login_email").input("l@plant.pk"); first.text_input(key="login_pw").input("secret1"); first.checkbox(key="keep_in").check()
+    first.text_input(key="login_email").input("l@plant.pk"); first.text_input(key="login_pw").input("secret12"); first.checkbox(key="keep_in").check()
     first.button(key="do_login").click().run()
     assert not first.exception and db.user_from_session(first.session_state["session_token"])["email"] == "l@plant.pk"
 
@@ -307,6 +308,6 @@ def test_without_a_cookie_the_user_logs_in_and_finds_everything_there():
     uid = first.session_state["user"]["id"]; db.add_equipment(uid, "pump", "CWP-01", "", PUMP)
     again = _app().run()
     assert "user" not in again.session_state                                            # a refresh without the 'keep me signed in' cookie: log in again
-    again.text_input(key="login_email").input("n@plant.pk"); again.text_input(key="login_pw").input("secret1"); again.button(key="do_login").click().run()
+    again.text_input(key="login_email").input("n@plant.pk"); again.text_input(key="login_pw").input("secret12"); again.button(key="do_login").click().run()
     _equipment_page(again)
     assert any("Registered equipment (1)" in h.value for h in again.subheader)

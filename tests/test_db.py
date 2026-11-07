@@ -11,7 +11,7 @@ def temp_db(tmp_path, monkeypatch):
 
 
 def _user(email="a@uet.edu.pk", role="student"):
-    return db.create_user("Ali", email, "secret1", role)
+    return db.create_user("Ali", email, "secret12", role)
 
 
 def test_init_is_repeatable():
@@ -20,34 +20,33 @@ def test_init_is_repeatable():
 def test_create_and_login():
     u = _user()
     assert u["role"] == "student"
-    assert db.authenticate("a@uet.edu.pk", "secret1")["id"] == u["id"]
+    assert db.authenticate("a@uet.edu.pk", "secret12")["id"] == u["id"]
 
 def test_wrong_password_and_unknown_user():
     _user()
     assert db.authenticate("a@uet.edu.pk", "wrong") is None
-    assert db.authenticate("nobody@uet.edu.pk", "secret1") is None
+    assert db.authenticate("nobody@uet.edu.pk", "secret12") is None
 
 def test_email_is_case_insensitive():
     _user("Ali@UET.edu.pk")
-    assert db.authenticate("ali@uet.edu.pk", "secret1") is not None
+    assert db.authenticate("ali@uet.edu.pk", "secret12") is not None
 
 def test_duplicate_email_rejected():
     _user()
     with pytest.raises(db.DBError):
         _user()
 
-@pytest.mark.parametrize("name,email,pw,role", [("", "a@b.com", "secret1", "student"), ("A", "not-an-email", "secret1", "student"),
-                                                ("A", "a@b.com", "123", "student"), ("A", "a@b.com", "secret1", "admin")])
+@pytest.mark.parametrize("name,email,pw,role", [("", "a@b.com", "secret12", "student"), ("A", "not-an-email", "secret12", "student"),
+                                                ("A", "a@b.com", "123", "student"), ("A", "a@b.com", "secret12", "admin")])
 def test_validation(name, email, pw, role):
     with pytest.raises(db.DBError):
         db.create_user(name, email, pw, role)
 
 def test_password_not_stored_in_plain_text():
     _user("a@b.com"); _user("c@d.com")
-    import sqlite3
-    rows = sqlite3.connect(os.environ["PLANTPULSE_DB"]).execute("SELECT salt, password_hash FROM users").fetchall()
-    assert all("secret1" not in r[1] for r in rows)
-    assert rows[0][1] != rows[1][1] and rows[0][0] != rows[1][0]   # different salts -> different hashes
+    rows = db._run("SELECT salt, password_hash FROM users")[0]
+    assert all("secret12" not in r["password_hash"] for r in rows)
+    assert rows[0]["password_hash"] != rows[1]["password_hash"] and rows[0]["salt"] != rows[1]["salt"]   # different salts -> different hashes
 
 def test_equipment_add_list_delete():
     u = _user()
@@ -92,8 +91,7 @@ def test_deleting_equipment_removes_its_logs():
     eid = db.add_equipment(u["id"], "pump", "P-1", "", {})
     db.add_log(u["id"], eid, {"x": 1})
     db.delete_equipment(u["id"], eid)
-    import sqlite3
-    assert sqlite3.connect(os.environ["PLANTPULSE_DB"]).execute("SELECT COUNT(*) FROM operating_logs").fetchone()[0] == 0
+    assert db._run("SELECT COUNT(*) AS n FROM operating_logs")[0][0]["n"] == 0
 
 
 def test_bulk_logs_skip_duplicates_and_enforce_ownership():

@@ -23,7 +23,7 @@ def test_register_then_home_then_logout():
     at = _app().run()
     at.text_input(key="reg_name").input("Abdul")
     at.text_input(key="reg_email").input("abdul@uet.edu.pk")
-    at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_pw").input("secret12")
     at.button(key="do_register").click().run()
     assert not at.exception
     assert at.session_state["user"]["name"] == "Abdul" and at.session_state["user"]["role"] == "student"
@@ -49,7 +49,7 @@ def test_engineer_saves_and_sees_equipment():
     at = _app().run()
     at.text_input(key="reg_name").input("Engr Khan")
     at.text_input(key="reg_email").input("khan@plant.pk")
-    at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_pw").input("secret12")
     at.radio(key="reg_role").set_value("Plant engineer")
     at.button(key="do_register").click().run()
     assert at.session_state["user"]["role"] == "engineer"
@@ -66,7 +66,7 @@ def _login_with_equipment(template):
     at = _app().run()
     at.text_input(key="reg_name").input("Engr Test")
     at.text_input(key="reg_email").input("test@plant.pk")
-    at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_pw").input("secret12")
     at.radio(key="reg_role").set_value("Plant engineer")
     at.button(key="do_register").click().run()
     at.switch_page("views/equipment.py").run()
@@ -211,7 +211,7 @@ def _register_engineer(email="v@plant.pk"):
     at = _app().run()
     at.text_input(key="reg_name").input("Abdul")
     at.text_input(key="reg_email").input(email)
-    at.text_input(key="reg_pw").input("secret1")
+    at.text_input(key="reg_pw").input("secret12")
     at.button(key="do_register").click().run()
     return at
 

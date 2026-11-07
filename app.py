@@ -1,8 +1,13 @@
 import streamlit as st
-from core import db, session_cookie
+from core import clock, db, session_cookie
 
 st.set_page_config(page_title="PlantPulse", page_icon="🌡️", layout="wide")
-db.init_db()
+clock.apply_timezone()
+try:
+    db.init_db()
+except db.DBError as err:                                           # for example the hosted database is unreachable
+    st.error(str(err))
+    st.stop()
 
 if "user" not in st.session_state:                                  # a page refresh starts a new session: sign in again from the cookie, if there is one
     cookie_token = session_cookie.read_token()
@@ -27,10 +32,13 @@ else:
         st.Page("views/monitor.py", title="Monitor", icon="📈"),
         st.Page("views/validation.py", title="Validation Log", icon="✅"),
         st.Page("views/equipment.py", title="My Equipment", icon="🗂️"),
+        st.Page("views/account.py", title="Account", icon="👤"),
     ]
     nav = st.navigation(pages)
     with st.sidebar:
         st.caption(f"Signed in as **{user['name']}** ({user['role']})")
+        storage = db.storage_info()
+        st.caption(f"Storage: {storage['kind']}" + (" (temporary)" if storage["temporary"] else ""))
         if st.button("Log out", key="logout"):
             db.delete_session(st.session_state.pop("session_token", None))
             del st.session_state["user"]
