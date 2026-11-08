@@ -5,7 +5,7 @@ from calc_engine import pump_pipe as pp
 from calc_engine.heat_exchanger import InputError
 from core.unit_ui import unit_input as ui
 
-NAVY, TEAL, RED, AMB = "#0B2545", "#13A89E", "#D64550", "#F5A623"
+NAVY, BLUE, RED, AMB = "#0B2545", "#2F6DA8", "#D64550", "#F5A623"
 st.title("💧 Pump & Pipeline")
 st.caption("System curve vs pump curve, operating point, power and energy cost. Water service.")
 
@@ -71,7 +71,7 @@ with tab1:
     pump_h = [pp.pump_head(coeffs, q) for q in qs]
     sys_h = [pp.system_head(q, *args, sum_k, rho, mu) for q in qs]
     fig = go.Figure()
-    fig.add_scatter(x=[q * 3600 for q in qs], y=pump_h, name="Pump curve", line=dict(color=TEAL, width=3))
+    fig.add_scatter(x=[q * 3600 for q in qs], y=pump_h, name="Pump curve", line=dict(color=BLUE, width=3))
     fig.add_scatter(x=[q * 3600 for q in qs], y=sys_h, name="System curve", line=dict(color=NAVY, width=3))
     fig.add_scatter(x=[op["q"] * 3600], y=[op["h"]], name="Operating point", mode="markers",
                     marker=dict(color=RED, size=14, line=dict(color="white", width=2)))

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 44" width="230" height="44" role="img" aria-label="PlantPulse">
+  <rect x="2" y="4" width="36" height="36" rx="9" fill="#0B2545"/>
+  <polyline points="7,23 14,23 18,13 24,33 28,23 33,23" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="48" y="30" font-family="Source Sans Pro, Segoe UI, Arial, sans-serif" font-size="26" font-weight="800" letter-spacing="-0.5"><tspan fill="#0B2545">Plant</tspan><tspan fill="#2F6DA8">Pulse</tspan></text>
+</svg>

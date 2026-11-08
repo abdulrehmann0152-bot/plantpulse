@@ -1,7 +1,7 @@
 """Simple SVG schematics that show how the fluids flow through each exchanger arrangement."""
 import math
 
-NAVY, TEAL, RED, GREY = "#0B2545", "#13A89E", "#D64550", "#6B7280"
+NAVY, BLUE, RED, GREY = "#0B2545", "#2F6DA8", "#D64550", "#6B7280"
 
 
 def _arrow(x1, y1, x2, y2, color):
@@ -20,7 +20,7 @@ def _t(x, y, text, color=NAVY, size=13, anchor="middle", bold=False):
 
 
 def schematic_svg(arrangement, th_in, th_out, tc_in, tc_out):
-    """Return an SVG string. Hot fluid (red) is on the shell side, cold fluid (teal) in the tubes."""
+    """Return an SVG string. Hot fluid (red) is on the shell side, cold fluid (blue) in the tubes."""
     s = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300">',
          '<rect width="760" height="300" fill="white"/>',
          f'<rect x="150" y="90" width="460" height="130" rx="14" fill="#F4F7FA" stroke="{NAVY}" stroke-width="3"/>',
@@ -31,21 +31,21 @@ def schematic_svg(arrangement, th_in, th_out, tc_in, tc_out):
     if arrangement == "shell_1_2":
         s += [f'<line x1="300" y1="90" x2="300" y2="185" stroke="{NAVY}" stroke-width="3"/>',
               f'<line x1="440" y1="220" x2="440" y2="125" stroke="{NAVY}" stroke-width="3"/>',
-              f'<path d="M150,140 L585,140 Q615,140 615,160 Q615,180 585,180 L150,180" fill="none" stroke="{TEAL}" stroke-width="4"/>',
-              _arrow(14, 140, 148, 140, TEAL), _arrow(148, 180, 14, 180, TEAL),
-              _t(10, 128, f"Cold in {tc_in:g} °C", TEAL, 13, "start", True), _t(10, 202, f"Cold out {tc_out:g} °C", TEAL, 13, "start", True),
+              f'<path d="M150,140 L585,140 Q615,140 615,160 Q615,180 585,180 L150,180" fill="none" stroke="{BLUE}" stroke-width="4"/>',
+              _arrow(14, 140, 148, 140, BLUE), _arrow(148, 180, 14, 180, BLUE),
+              _t(10, 128, f"Cold in {tc_in:g} °C", BLUE, 13, "start", True), _t(10, 202, f"Cold out {tc_out:g} °C", BLUE, 13, "start", True),
               _t(380, 112, "Shell side: hot fluid zig-zags across the tubes around the baffles", GREY, 12),
-              _t(380, 208, "Tube side: pass 1 goes left to right, the U-bend returns it as pass 2", TEAL, 12)]
+              _t(380, 208, "Tube side: pass 1 goes left to right, the U-bend returns it as pass 2", BLUE, 12)]
     else:
-        s += [f'<line x1="150" y1="{y}" x2="610" y2="{y}" stroke="{TEAL}" stroke-width="4"/>' for y in (130, 160, 190)]
+        s += [f'<line x1="150" y1="{y}" x2="610" y2="{y}" stroke="{BLUE}" stroke-width="4"/>' for y in (130, 160, 190)]
         if arrangement == "counter":
-            s += [_arrow(750, 160, 612, 160, TEAL), _arrow(148, 160, 14, 160, TEAL),
-                  _t(750, 148, f"Cold in {tc_in:g} °C", TEAL, 13, "end", True), _t(10, 148, f"Cold out {tc_out:g} °C", TEAL, 13, "start", True),
+            s += [_arrow(750, 160, 612, 160, BLUE), _arrow(148, 160, 14, 160, BLUE),
+                  _t(750, 148, f"Cold in {tc_in:g} °C", BLUE, 13, "end", True), _t(10, 148, f"Cold out {tc_out:g} °C", BLUE, 13, "start", True),
                   _t(380, 112, "Hot flows left to right, cold flows right to left (opposite directions)", GREY, 12)]
         else:
-            s += [_arrow(14, 160, 148, 160, TEAL), _arrow(612, 160, 750, 160, TEAL),
-                  _t(10, 148, f"Cold in {tc_in:g} °C", TEAL, 13, "start", True), _t(750, 148, f"Cold out {tc_out:g} °C", TEAL, 13, "end", True),
+            s += [_arrow(14, 160, 148, 160, BLUE), _arrow(612, 160, 750, 160, BLUE),
+                  _t(10, 148, f"Cold in {tc_in:g} °C", BLUE, 13, "start", True), _t(750, 148, f"Cold out {tc_out:g} °C", BLUE, 13, "end", True),
                   _t(380, 112, "Hot and cold both flow left to right (same direction)", GREY, 12)]
-        s.append(_t(380, 212, "Cold fluid in the tubes", TEAL, 12))
+        s.append(_t(380, 212, "Cold fluid in the tubes", BLUE, 12))
     s.append('</svg>')
     return "".join(s)

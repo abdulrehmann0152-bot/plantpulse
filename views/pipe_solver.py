@@ -305,11 +305,11 @@ if pump:
     st.dataframe(pd.DataFrame([{"Q / Q_BEP": t["ratio"], "Flow, water (m³/h)": t["q_water"], "Head, water (m)": t["h_water"], "Head factor C_H": t["ch"],
                                 "Flow, viscous (m³/h)": t["q_visc"], "Head, viscous (m)": t["h_visc"]} for t in pump["table"]]).round(3), hide_index=True, width="stretch")
     fig = go.Figure()
-    fig.add_scatter(x=pump["water_curve"][0], y=pump["water_curve"][1], name="Pump curve on water", line=dict(color="#13A89E", width=3))
+    fig.add_scatter(x=pump["water_curve"][0], y=pump["water_curve"][1], name="Pump curve on water", line=dict(color="#2F6DA8", width=3))
     fig.add_scatter(x=pump["visc_curve"][0], y=pump["visc_curve"][1], name="Corrected for viscosity", line=dict(color="#D64550", width=3, dash="dash"))
     q_sys = [i * max(pump["water_curve"][0]) * 1.15 / 40 for i in range(41)]
     fig.add_scatter(x=q_sys, y=[solver.system_head_curve(x, d_mm, length, rho, mu, rough, sum_k, static, dp, led) for x in q_sys], name="System curve (this liquid)", line=dict(color="#0B2545", width=3))
-    for key, label, color in (("water_op", "Operating point, water curve", "#13A89E"), ("visc_op", "Operating point, corrected curve", "#D64550")):
+    for key, label, color in (("water_op", "Operating point, water curve", "#2F6DA8"), ("visc_op", "Operating point, corrected curve", "#D64550")):
         if pump[key]:
             fig.add_scatter(x=[pump[key]["q"]], y=[pump[key]["h"]], mode="markers", name=label, marker=dict(color=color, size=12, line=dict(color="white", width=2)))
     fig.update_layout(xaxis_title="Flow (m³/h)", yaxis_title="Head (m)", template="plotly_white", legend=dict(orientation="h", y=1.15), margin=dict(t=30))

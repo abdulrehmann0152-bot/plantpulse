@@ -7,7 +7,7 @@ from core import chart_notes, db, importer, report, units
 from calc_engine import monitor as mon
 from calc_engine.heat_exchanger import InputError
 
-NAVY, TEAL, RED, AMB, GRN = "#0B2545", "#13A89E", "#D64550", "#F5A623", "#2E9E5B"
+NAVY, BLUE, RED, AMB, GRN = "#0B2545", "#2F6DA8", "#D64550", "#F5A623", "#2E7D4F"
 user = st.session_state["user"]
 st.title("📈 Monitor & Digital Twin")
 st.caption("Upload readings, compare them with the twin, and get alerts before performance is lost.")
@@ -160,7 +160,7 @@ if kind == "heat_exchanger":
     t1, t2, t3, t4 = st.tabs(["U and fouling trend", "Twin: expected vs observed", "Alerts and actions", "Data"])
     with t1:
         u_clean = params["u_clean"]
-        line_chart([("Observed U", "u", TEAL, None)], "Overall U (W/m²K)",
+        line_chart([("Observed U", "u", BLUE, None)], "Overall U (W/m²K)",
                    [(u_clean, GRN, "Clean U"), (u_clean * (1 - warn / 100), AMB, f"{warn:g}% loss (watch)"), (u_clean * (1 - crit / 100), RED, f"{crit:g}% loss (act)")])
         line_chart([("Fouling resistance Rf", "rf", NAVY, None)], "Rf (m²K/W)")
     with t2:
@@ -192,11 +192,11 @@ else:
     m4.metric("Deviation from system curve", f"{last['sys_dev_pct']:+.1f}%")
     t1, t2, t3, t4 = st.tabs(["Head vs expected", "Deviation from twin", "Alerts and actions", "Data"])
     with t1:
-        line_chart([("Measured head", "head_m", RED, None), ("Expected on pump curve", "h_pump_expected", TEAL, "dash"),
+        line_chart([("Measured head", "head_m", RED, None), ("Expected on pump curve", "h_pump_expected", BLUE, "dash"),
                     ("Expected on system curve", "h_sys_expected", NAVY, "dot")], "Head (m)")
-        line_chart([("Measured flow", "flow_m3_h", TEAL, None)], "Flow (m³/h)")
+        line_chart([("Measured flow", "flow_m3_h", BLUE, None)], "Flow (m³/h)")
     with t2:
-        line_chart([("Vs pump curve (%)", "pump_dev_pct", TEAL, None), ("Vs system curve (%)", "sys_dev_pct", NAVY, None)],
+        line_chart([("Vs pump curve (%)", "pump_dev_pct", BLUE, None), ("Vs system curve (%)", "sys_dev_pct", NAVY, None)],
                    "Deviation (%)", [(5, AMB, "+5%"), (-5, AMB, "-5%")])
         st.caption("Within ±5% is treated as normal. Pump wear shows as a negative deviation from the pump curve; "
                    "extra line resistance shows as a positive deviation from the system curve.")

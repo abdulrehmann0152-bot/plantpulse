@@ -9,7 +9,7 @@ from core.form_state import FormState
 from core.results_text import build_text
 from core.unit_ui import unit_input as ui
 
-RED, TEAL = "#D64550", "#13A89E"
+RED, BLUE = "#D64550", "#2F6DA8"
 fs = FormState("sv")
 K, blank = fs.key, fs.blank
 st.title("🧮 Problem Solver: Heat Exchangers")
@@ -220,7 +220,7 @@ hot = [th_in - (th_in - th_out) * x for x in xs]
 cold = ([tc_in + (tc_out - tc_in) * x for x in xs] if arr == "parallel" else [tc_out - (tc_out - tc_in) * x for x in xs])
 fig = go.Figure()
 fig.add_scatter(x=xs, y=hot, name="Hot fluid", line=dict(color=RED, width=3))
-fig.add_scatter(x=xs, y=cold, name="Cold fluid", line=dict(color=TEAL, width=3))
+fig.add_scatter(x=xs, y=cold, name="Cold fluid", line=dict(color=BLUE, width=3))
 fig.update_layout(xaxis_title="Fraction of heat transferred (from the hot inlet end)", yaxis_title="Temperature (°C)",
                   template="plotly_white", legend=dict(orientation="h", y=1.12), margin=dict(t=30))
 st.plotly_chart(fig, width="stretch")

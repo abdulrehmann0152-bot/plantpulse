@@ -1,8 +1,9 @@
 import streamlit as st
-from core import clock, db, session_cookie
+from core import branding, clock, db, session_cookie
 
 st.set_page_config(page_title="PlantPulse", page_icon="🌡️", layout="wide")
 clock.apply_timezone()
+branding.apply()
 try:
     db.init_db()
 except db.DBError as err:                                           # for example the hosted database is unreachable

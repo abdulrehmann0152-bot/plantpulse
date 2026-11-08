@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 from fpdf import FPDF, FontFace
 
-NAVY, TEAL, RED, AMB, GRN, GREY, LIGHT = (11, 37, 69), (19, 168, 158), (214, 69, 80), (245, 166, 35), (46, 158, 91), (120, 130, 140), (244, 247, 250)
+NAVY, BLUE, RED, AMB, GRN, GREY, LIGHT = (11, 37, 69), (47, 109, 168), (214, 69, 80), (245, 166, 35), (46, 125, 79), (120, 130, 140), (244, 247, 250)
 STATUS = {"ok": ("HEALTHY", GRN), "warning": ("WATCH", AMB), "critical": ("ACTION NEEDED", RED), "nodata": ("NO DATA", GREY)}
 NAMES = {"heat_exchanger": "Heat exchanger", "pump": "Pump and pipeline"}
 
@@ -214,7 +214,7 @@ def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=Fa
         uc = p["u_clean"]
         y0 = pdf.get_y()
         _chart(pdf, 15, y0, 180, 62, "Overall U over time",
-               [("Observed U (W/m2K)", ts, list(tg["u"]), TEAL, False)],
+               [("Observed U (W/m2K)", ts, list(tg["u"]), BLUE, False)],
                [(uc, GRN, "Clean U"), (uc * (1 - warn / 100), AMB, f"{warn:g}% loss (watch)"), (uc * (1 - crit / 100), RED, f"{crit:g}% loss (act)")])
         y0 += 64
         _chart(pdf, 15, y0, 180, 62, "Digital twin: cold outlet temperature",
@@ -226,11 +226,11 @@ def build_report(kind, eq, res, alerts, status, text, user, note="", has_demo=Fa
                      ("Deviation from pump curve", f"{last['pump_dev_pct']:+.1f} %"), ("Deviation from system curve", f"{last['sys_dev_pct']:+.1f} %")], 4)
         y0 = pdf.get_y()
         _chart(pdf, 15, y0, 180, 62, "Head: measured vs expected",
-               [("Measured (m)", ts, list(tg["head_m"]), RED, False), ("Expected on pump curve (m)", ts, list(tg["h_pump_expected"]), TEAL, True),
+               [("Measured (m)", ts, list(tg["head_m"]), RED, False), ("Expected on pump curve (m)", ts, list(tg["h_pump_expected"]), BLUE, True),
                 ("Expected on system curve (m)", ts, list(tg["h_sys_expected"]), NAVY, True)])
         y0 += 64
         _chart(pdf, 15, y0, 180, 62, "Deviation from the twin (%)",
-               [("Vs pump curve", ts, list(tg["pump_dev_pct"]), TEAL, False), ("Vs system curve", ts, list(tg["sys_dev_pct"]), NAVY, False)],
+               [("Vs pump curve", ts, list(tg["pump_dev_pct"]), BLUE, False), ("Vs system curve", ts, list(tg["sys_dev_pct"]), NAVY, False)],
                [(5, AMB, "+5%"), (-5, AMB, "-5%")])
         pdf.set_y(y0 + 64)
         actions = ACTIONS.get(last["status"], [])

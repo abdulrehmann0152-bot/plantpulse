@@ -6,7 +6,7 @@ Particles move along the real flow paths. Colour shows temperature (heat exchang
 import math
 
 HOT0, HOT1, COLD0, COLD1 = "#D64550", "#F28C28", "#2563EB", "#F2B705"
-NAVY, GREY, TEAL = "#0B2545", "#6B7280", "#13A89E"
+NAVY, GREY, BLUE = "#0B2545", "#6B7280", "#2F6DA8"
 SPEED = 120.0   # pixels per second at 1x
 
 
@@ -140,13 +140,13 @@ def animated_hx_html(arrangement, th_in, th_out, tc_in, tc_out, hot_in_tubes=Fal
                    if arrangement == "shell_2_4" else
                    f"{tb['name']} fluid in the tubes: pass 1 left to right, U-turn in the return head, pass 2 right to left")
         s += [_tx(665, 93, "Return head", GREY, 11), _tx(310, 94, "Baffle", GREY, 11), _tx(470, 256, "Baffle", GREY, 11),
-              _tx(390, 172, "Tube bundle", TEAL, 12, "middle", True),
+              _tx(390, 172, "Tube bundle", BLUE, 12, "middle", True),
               _tx(10, 133, f"{tb['name']} in {tb['t_in']:g} °C", tb["c0"], 13, "start", True),
               _tx(10, 220, f"{tb['name']} out {tb['t_out']:g} °C", tb["c1"], 13, "start", True),
               _tx(10, 322, caption, GREY, 11, "start")]
     else:
         s.append(_tx(655, 93, "Channel head", GREY, 11))
-        s.append(_tx(400, 214, f"Tube bundle ({tb['name'].lower()} fluid)", TEAL, 12, "middle", True))
+        s.append(_tx(400, 214, f"Tube bundle ({tb['name'].lower()} fluid)", BLUE, 12, "middle", True))
         if counter:
             s += [_tx(760, 146, f"{tb['name']} in {tb['t_in']:g} °C", tb["c0"], 13, "end", True), _tx(10, 146, f"{tb['name']} out {tb['t_out']:g} °C", tb["c1"], 13, "start", True),
                   _tx(10, 322, f"Counter-flow: the {sh['name'].lower()} fluid moves left to right, the {tb['name'].lower()} fluid moves right to left", GREY, 11, "start")]
@@ -194,7 +194,7 @@ def animated_pipe_html(q_m3h, v, d_mm, length_m, sum_k, static_m, head_m=None, s
     info = f"Flow Q = {q_m3h:,.1f} m³/h   |   velocity v = {v:.2f} m/s" + (f"   |   Re = {re:,.0f}" if re else "")
     s.append(_tx(400, 348, info, NAVY, 13, "middle", True))
     if head_m is not None and shaft_kw is not None:
-        s.append(_tx(400, 366, f"Total head required = {head_m:.2f} m   |   shaft power = {shaft_kw:.2f} kW", TEAL, 13, "middle", True))
+        s.append(_tx(400, 366, f"Total head required = {head_m:.2f} m   |   shaft power = {shaft_kw:.2f} kW", BLUE, 13, "middle", True))
     s.append("</svg>")
     legend = (f'<span><span class="sw" style="background:{lo}"></span>Low pressure (before the pump)</span>'
               f'<span><span class="sw" style="background:{hi}"></span>High pressure (after the pump)</span>')

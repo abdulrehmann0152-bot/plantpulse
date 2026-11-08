@@ -1,8 +1,7 @@
 import streamlit as st
-from core import db
+from core import branding, db
 
-st.title("🌡️ PlantPulse")
-st.subheader("Learn it in class. Monitor it in the plant.")
+branding.brand_header(show_about=True)
 if st.session_state.pop("account_deleted", False):
     st.success("Your account and all its data were deleted.")
 if db.storage_info()["temporary"]:

@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 from calc_engine import heat_exchanger as hx
 from core.unit_ui import unit_input as ui
 
-NAVY, TEAL, RED = "#0B2545", "#13A89E", "#D64550"
+NAVY, BLUE, RED = "#0B2545", "#2F6DA8", "#D64550"
 st.title("🌡️ Heat Exchanger")
 st.caption("Performance calculator: duty, LMTD, U value and fouling.")
 
@@ -68,7 +68,7 @@ with tab1:
         cold = [tc_out - (tc_out - tc_in) * x for x in xs]
     fig = go.Figure()
     fig.add_scatter(x=xs, y=hot, name="Hot fluid", line=dict(color=RED, width=3))
-    fig.add_scatter(x=xs, y=cold, name="Cold fluid", line=dict(color=TEAL, width=3))
+    fig.add_scatter(x=xs, y=cold, name="Cold fluid", line=dict(color=BLUE, width=3))
     fig.update_layout(xaxis_title="Fraction of heat transferred (from the hot inlet end)",
                       yaxis_title="Temperature (°C)", template="plotly_white",
                       legend=dict(orientation="h", y=1.1), margin=dict(t=30))

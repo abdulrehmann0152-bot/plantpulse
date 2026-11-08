@@ -4,7 +4,7 @@ from datetime import date, datetime
 from fpdf import FontFace
 
 from core.validation import fmt_diff
-from core.report import NAVY, TEAL, RED, AMB, GRN, GREY, _PDF, _heading, _para, _t
+from core.report import NAVY, BLUE, RED, AMB, GRN, GREY, _PDF, _heading, _para, _t
 
 COLORS = {"Match": GRN, "Acceptable": AMB, "Check": RED}
 
