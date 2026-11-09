@@ -39,6 +39,12 @@ h4 {{ font-size: 1.05rem; font-weight: 600; }}
 [data-testid="stMetric"] {{ background: var(--pp-light); border: 1px solid var(--pp-line); border-radius: 10px; padding: 0.7rem 1rem; }}
 [data-testid="stMetricLabel"] {{ color: var(--pp-grey); }}
 [data-testid="stMetricValue"] {{ color: var(--pp-navy); font-weight: 700; }}
+
+/* KPI cards: show the whole value and unit (Streamlit cuts long values with "..." by default). The value may wrap onto a second line instead. */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] *, [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *, [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] * {{
+  overflow: visible !important; text-overflow: clip !important; white-space: normal !important; overflow-wrap: anywhere; word-break: normal; max-width: 100%; }}
+[data-testid="stMetricValue"] {{ font-size: clamp(1.25rem, 1.1rem + 0.9vw, 1.9rem); line-height: 1.2; }}
+[data-testid="stMetricValue"] * {{ font-size: inherit; line-height: inherit; }}
 [data-testid="stExpander"] {{ border: 1px solid var(--pp-line); border-radius: 10px; }}
 [data-testid="stVerticalBlockBorderWrapper"] {{ border-radius: 12px; }}
 button[role="tab"] {{ font-weight: 600; }}

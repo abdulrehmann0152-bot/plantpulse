@@ -1,15 +1,13 @@
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
-from calc_engine import solver
+from calc_engine import heat_exchanger as hx, solver
 from calc_engine.heat_exchanger import InputError
-from core import animation, validation as val
+from core import animation, hx_plot, step_view, validation as val
 from core.clipboard import show_copy_button
 from core.form_state import FormState
 from core.results_text import build_text
 from core.unit_ui import unit_input as ui
 
-RED, BLUE = "#D64550", "#2F6DA8"
 fs = FormState("sv")
 K, blank = fs.key, fs.blank
 st.title("🧮 Problem Solver: Heat Exchangers")
@@ -149,7 +147,7 @@ st.session_state["last_solve"] = {"title": "Heat Exchanger Solver", "values": va
 st.divider()
 st.header("Solution")
 for w in r["warnings"]:
-    st.warning(w)
+    (st.error if w.startswith("HEAT BALANCE") else st.warning)(w)
 
 cards = [("LMTD, counter-flow", f"{r['lmtd_counter']:.2f} K")]
 if r["lmtd_parallel"] is not None:
@@ -204,10 +202,7 @@ with st.expander("Show results as text (copy icon at the top right of the box)")
     st.code(text, language=None)
 
 st.subheader("Step-by-step solution")
-for n, s in enumerate(r["steps"], 1):
-    st.markdown(f"**Step {n}. {s['title']}**")
-    st.latex(s["formula"])
-    st.write(s["working"])
+step_view.show_steps(r["steps"])
 
 st.subheader("Assumptions used")
 for a in r["assumptions"]:
@@ -215,17 +210,7 @@ for a in r["assumptions"]:
 
 st.subheader("How the fluids flow")
 animation.show(animation.animated_hx_html(arr, th_in, th_out, tc_in, tc_out, hot_in_tubes), animation.HX_HEIGHT)
-xs = [i / 20 for i in range(21)]
-hot = [th_in - (th_in - th_out) * x for x in xs]
-cold = ([tc_in + (tc_out - tc_in) * x for x in xs] if arr == "parallel" else [tc_out - (tc_out - tc_in) * x for x in xs])
-fig = go.Figure()
-fig.add_scatter(x=xs, y=hot, name="Hot fluid", line=dict(color=RED, width=3))
-fig.add_scatter(x=xs, y=cold, name="Cold fluid", line=dict(color=BLUE, width=3))
-fig.update_layout(xaxis_title="Fraction of heat transferred (from the hot inlet end)", yaxis_title="Temperature (°C)",
-                  template="plotly_white", legend=dict(orientation="h", y=1.12), margin=dict(t=30))
-st.plotly_chart(fig, width="stretch")
-if arr.startswith("shell"):
-    st.caption("In a multi-pass exchanger the cold stream makes two passes, so the real profile bends; the straight lines show the overall counter-flow equivalent used with the F factor.")
+st.plotly_chart(hx_plot.profile_figure(hx.temperature_profile(arr, th_in, th_out, tc_in, tc_out)), width="stretch")
 if r["lmtd_parallel"] is not None:
     st.dataframe(pd.DataFrame({"Arrangement": ["Counter-flow", "Parallel flow"], "LMTD (K)": [r["lmtd_counter"], r["lmtd_parallel"]]}).round(3),
                  hide_index=True, width="stretch")

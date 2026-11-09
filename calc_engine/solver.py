@@ -7,6 +7,7 @@ Units: deg C, kg/s, kJ/(kg.K), kW, m2, W/(m2.K).
 import math
 
 from . import heat_exchanger as hx
+from . import hx_explain as ex
 from . import pump_pipe as pp
 from .heat_exchanger import InputError
 
@@ -26,12 +27,13 @@ SHELL_NOTE = ("For shell-and-tube exchangers the LMTD is corrected with the fact
 
 
 def _step(title, formula, working):
+    """A worked step. 'working' is the one-line summary; hx_explain adds 'variables' and 'calc' (substitution, intermediate, result)."""
     return {"title": title, "formula": formula, "working": working}
 
 
 def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None, m_cold=None, cp_cold=None,
              q_kw=None, area=None, u=None, f_given=None, *, hot_side="shell", mu_bulk=None, mu_wall=None,
-             visc_label="the fluid", film_share_pct=100.0, tube_od_mm=None, tube_length_m=None, n_tubes=None):
+             visc_label="the fluid", film_share_pct=100.0, tube_od_mm=None, tube_length_m=None, n_tubes=None, balance_tol_pct=hx.HEAT_BALANCE_TOL_PCT):
     """Return a dict with results, steps, assumptions and warnings. Optional inputs may be None.
 
     hot_side: 'shell' or 'tube' (which side the hot fluid is on). mu_bulk, mu_wall: viscosities in mPa.s for the
@@ -67,11 +69,14 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
                        f"ΔT₁ = {th_in:g} − {tc_out:g} = {d1c:g} K;  ΔT₂ = {th_out:g} − {tc_in:g} = {d2c:g} K;  "
                        f"LMTD = ({d1c:g} − {d2c:g}) / ln({d1c:g}/{d2c:g}) = {r['lmtd_counter']:.3f} K"
                        if not math.isclose(d1c, d2c) else f"ΔT₁ = ΔT₂ = {d1c:g} K, so LMTD = {d1c:g} K"))
+    steps[-1].update(ex.lmtd_parts("counter", th_in, th_out, tc_in, tc_out, r["lmtd_counter"]))
+    warnings.extend(hx.approach_warnings(d1c, d2c))
     try:
         r["lmtd_parallel"] = hx.lmtd(th_in, th_out, tc_in, tc_out, "parallel")
         steps.append(_step("Parallel-flow LMTD (for comparison)", r"\Delta T_1 = T_{h,in}-T_{c,in},\quad \Delta T_2 = T_{h,out}-T_{c,out}",
                            f"ΔT₁ = {th_in:g} − {tc_in:g} = {d1p:g} K;  ΔT₂ = {th_out:g} − {tc_out:g} = {d2p:g} K;  LMTD = {r['lmtd_parallel']:.3f} K"
                            if not math.isclose(d1p, d2p) else f"ΔT₁ = ΔT₂ = {d1p:g} K, so LMTD = {d1p:g} K"))
+        steps[-1].update(ex.lmtd_parts("parallel", th_in, th_out, tc_in, tc_out, r["lmtd_parallel"]))
     except InputError:
         r["lmtd_parallel"] = None
         warnings.append("These temperatures are impossible in parallel flow (the cold outlet would be hotter than the hot outlet).")
@@ -86,41 +91,50 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
         r["f_computed"] = hx.correction_factor_n_shells(th_in, th_out, tc_in, tc_out, n_sh)
         steps.append(_step("R, P and the correction factor F", r"R=\dfrac{T_{h,in}-T_{h,out}}{T_{c,out}-T_{c,in}},\quad P=\dfrac{T_{c,out}-T_{c,in}}{T_{h,in}-T_{c,in}}",
                            f"R = ({th_in:g} − {th_out:g}) / ({tc_out:g} − {tc_in:g}) = {r['R']:.4f};  P = ({tc_out:g} − {tc_in:g}) / ({th_in:g} − {tc_in:g}) = {r['P']:.4f}"))
+        steps[-1].update(ex.rp_parts(th_in, th_out, tc_in, tc_out))
         if n_sh == 1:
             steps.append(_step("Correction factor F (1 shell pass, 2 tube passes)",
                                r"F=\dfrac{\sqrt{R^2+1}}{R-1}\,\dfrac{\ln\left[\frac{1-P}{1-PR}\right]}{\ln\left[\frac{2-P(R+1-\sqrt{R^2+1})}{2-P(R+1+\sqrt{R^2+1})}\right]}",
                                f"F (from the equation) = {r['f_computed']:.4f}"))
+            steps[-1].update(ex.f_parts_1_2(r["R"], r["P"]))
         else:
             p1 = hx.shell_effectiveness(r["R"], r["P"], n_sh)
             r["p_per_shell"] = p1
             steps.append(_step(f"Effectiveness of each shell ({n_sh} shells in series)", r"x=\left(\dfrac{1-PR}{1-P}\right)^{1/N},\qquad P_1=\dfrac{x-1}{x-R}",
                                f"N = {n_sh};  x = (({1 - r['P'] * r['R']:.4f})/({1 - r['P']:.4f}))^(1/{n_sh});  P₁ = {p1:.4f} for each shell"))
+            steps[-1].update(ex.p1_parts(r["R"], r["P"], n_sh))
             steps.append(_step("Correction factor F (2 shell passes, 4 tube passes)",
                                r"F=\dfrac{\frac{1}{R-1}\ln\frac{1-P}{1-PR}}{N\cdot\frac{1}{\sqrt{R^2+1}}\ln\frac{2-P_1(R+1-\sqrt{R^2+1})}{2-P_1(R+1+\sqrt{R^2+1})}}",
                                f"F (from the equation) = {r['f_computed']:.4f}"))
+            steps[-1].update(ex.f_parts_n(r["R"], r["P"], n_sh, include_p1=False))
     r["f_used"] = f_given if f_given is not None else (r["f_computed"] if r["f_computed"] is not None else 1.0)
     if f_given is not None and r["f_computed"] is not None and abs(f_given - r["f_computed"]) > 0.005:
         warnings.append(f"The F you entered ({f_given:g}) differs from the value calculated from R and P ({r['f_computed']:.4f}). The entered value is used, as in a textbook problem that reads F from a chart.")
-    if r["f_used"] < 0.75:
-        warnings.append("F is below about 0.75, which usually means the exchanger is a poor match for these temperatures (more shells or a different arrangement is normally preferred).")
+    f_warning = hx.f_assessment(r["f_used"])
+    if f_warning:
+        warnings.append(f_warning)
     base = r["lmtd_parallel"] if arrangement == "parallel" else r["lmtd_counter"]
     r["lmtd_eff"] = r["f_used"] * base
     if n_sh or f_given is not None:
         src = "given in the problem" if f_given is not None else "calculated"
         steps.append(_step("Corrected mean temperature difference", r"\Delta T_{lm,corr} = F\cdot LMTD_{counter}",
                            f"ΔT_lm,corr = {r['f_used']:.4f} ({src}) × {base:.3f} = {r['lmtd_eff']:.3f} K"))
+        steps[-1].update(ex.corrected_parts(r["f_used"], base, r["lmtd_eff"]))
 
     # ---- duty and unknown flows
     q_hot = q_cold = None
     if m_hot and cp_hot:
         q_hot = m_hot * cp_hot * (th_in - th_out)
         steps.append(_step("Heat given by the hot fluid", r"Q_h=\dot m_h\,C_{p,h}\,(T_{h,in}-T_{h,out})", f"Q_h = {m_hot:g} × {cp_hot:g} × ({th_in:g} − {th_out:g}) = {q_hot:,.2f} kW"))
+        steps[-1].update(ex.duty_parts("hot", m_hot, cp_hot, th_in, th_out, q_hot))
     if m_cold and cp_cold:
         q_cold = m_cold * cp_cold * (tc_out - tc_in)
         steps.append(_step("Heat taken by the cold fluid", r"Q_c=\dot m_c\,C_{p,c}\,(T_{c,out}-T_{c,in})", f"Q_c = {m_cold:g} × {cp_cold:g} × ({tc_out:g} − {tc_in:g}) = {q_cold:,.2f} kW"))
+        steps[-1].update(ex.duty_parts("cold", m_cold, cp_cold, tc_in, tc_out, q_cold))
     if q_kw is not None:
         q = q_kw
         steps.append(_step("Duty given in the problem", r"Q", f"Q = {q:,.2f} kW"))
+        steps[-1].update(ex.given_duty_parts(q))
     elif q_hot is not None:
         q = q_hot
     elif q_cold is not None:
@@ -129,20 +143,24 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
         q = None
     if q_hot is not None and q_cold is not None:
         r["mismatch_pct"] = hx.heat_balance_mismatch_pct(q_hot, q_cold)
-        if r["mismatch_pct"] > 2:
-            warnings.append(f"Hot-side and cold-side duties differ by {r['mismatch_pct']:.1f}%. Check the flows, Cp values and temperatures (the heat balance should close). The hot-side value is used.")
+        r["balance"] = hx.heat_balance_status(q_hot * 1000, q_cold * 1000, balance_tol_pct)
+        if not r["balance"]["ok"]:
+            warnings.append(r["balance"]["message"] + " The hot-side duty is used for the calculation.")
     else:
         r["mismatch_pct"] = None
+        r["balance"] = None
     r["m_hot"], r["m_cold"] = m_hot, m_cold
     if q is not None:
         if not m_cold and cp_cold:
             r["m_cold"] = q / (cp_cold * (tc_out - tc_in))
             steps.append(_step("Cold-side flow from the heat balance", r"\dot m_c=\dfrac{Q}{C_{p,c}\,(T_{c,out}-T_{c,in})}",
                                f"ṁ_c = {q:,.2f} / ({cp_cold:g} × ({tc_out:g} − {tc_in:g})) = {r['m_cold']:.3f} kg/s"))
+            steps[-1].update(ex.flow_parts("cold", q, cp_cold, tc_out, tc_in, r["m_cold"]))
         if not m_hot and cp_hot:
             r["m_hot"] = q / (cp_hot * (th_in - th_out))
             steps.append(_step("Hot-side flow from the heat balance", r"\dot m_h=\dfrac{Q}{C_{p,h}\,(T_{h,in}-T_{h,out})}",
                                f"ṁ_h = {q:,.2f} / ({cp_hot:g} × ({th_in:g} − {th_out:g})) = {r['m_hot']:.3f} kg/s"))
+            steps[-1].update(ex.flow_parts("hot", q, cp_hot, th_in, th_out, r["m_hot"]))
     r["q_kw"], r["q_hot_kw"], r["q_cold_kw"] = q, q_hot, q_cold
 
     # ---- Sieder-Tate wall-viscosity correction (applies to a GIVEN U)
@@ -178,6 +196,7 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
         r["area_from_tubes"] = installed
         steps.append(_step("Heat transfer area from the tube geometry", r"A=N\,\pi\,D_o\,L",
                            f"A = {n_tubes:g} × π × {od:.4f} × {tube_length_m:g} = {installed:.3f} m²  (outside surface of the tubes)"))
+        steps[-1].update(ex.tube_area_parts(n_tubes, od, tube_length_m, installed))
         if area and abs(area - installed) / installed > 0.02:
             warnings.append(f"The area you entered ({area:g} m²) differs by more than 2% from the area of the tubes ({installed:.2f} m²). The entered area is used.")
         if not area and not u_eff:
@@ -192,6 +211,7 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
         r["u"] = q * 1000 / (area * r["lmtd_eff"])
         steps.append(_step("Overall heat transfer coefficient", r"U=\dfrac{Q}{A\,\Delta T_{lm,corr}}",
                            f"U = {q * 1000:,.0f} W / ({area:g} m² × {r['lmtd_eff']:.3f} K) = {r['u']:,.1f} W/m²K"))
+        steps[-1].update(ex.u_parts(q, area, r["lmtd_eff"], r["u"]))
     elif q is not None and u and not area:
         r["area"] = q * 1000 / (u_eff * r["lmtd_eff"])
         r["area_required"] = r["area"]
@@ -199,11 +219,13 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
         steps.append(_step("Required heat transfer area", r"A=\dfrac{Q}{U\,\Delta T_{lm,corr}}",
                            f"A = {q * 1000:,.0f} W / ({u_eff:g} W/m²K × {r['lmtd_eff']:.3f} K) = {r['area']:,.2f} m²"
                            + ("  (using the corrected U)" if r["u_corrected"] else "")))
+        steps[-1].update(ex.area_parts(q, u_eff, r["lmtd_eff"], r["area"]))
         if installed:
             over = (installed / r["area"] - 1) * 100
             r["over_surface_pct"] = over
             steps.append(_step("Installed area compared with the required area", r"\text{over-surface}=\left(\dfrac{A_{installed}}{A_{required}}-1\right)\times 100",
                                f"({installed:.2f} / {r['area']:.2f} − 1) × 100 = {over:+.1f} %"))
+            steps[-1].update(ex.over_surface_parts(installed, r["area"], over))
             if over < 0:
                 warnings.append(f"The tubes give {installed:.2f} m² but {r['area']:.2f} m² are required: the exchanger is too small by {-over:.1f}%.")
     elif q is not None and u and area:
@@ -216,10 +238,12 @@ def solve_hx(arrangement, th_in, th_out, tc_in, tc_out, m_hot=None, cp_hot=None,
             r["n_tubes_exact"], r["n_tubes_needed"] = n_exact, math.ceil(n_exact - 1e-9)
             steps.append(_step("Number of tubes needed", r"N=\dfrac{A}{\pi\,D_o\,L}",
                                f"N = {r['area']:.3f} / (π × {od:.4f} × {tube_length_m:g}) = {n_exact:.2f}, so {r['n_tubes_needed']} tubes"))
+            steps[-1].update(ex.tubes_needed_parts(r["area"], od, tube_length_m, n_exact, r["n_tubes_needed"]))
         elif n_tubes:
             r["tube_length_found"] = r["area"] / (n_tubes * math.pi * od)
             steps.append(_step("Tube length needed", r"L=\dfrac{A}{N\,\pi\,D_o}",
                                f"L = {r['area']:.3f} / ({n_tubes:g} × π × {od:.4f}) = {r['tube_length_found']:.3f} m"))
+            steps[-1].update(ex.tube_length_parts(r["area"], n_tubes, od, r["tube_length_found"]))
         else:
             warnings.append("Enter the tube length or the number of tubes to turn the required area into a tube count or a tube length.")
     elif (tube_length_m or n_tubes) and not od:
