@@ -267,7 +267,7 @@ def _pipe_checks(d_mm, length_m, rho, mu_pas, rough_mm, sum_k, equiv_len_d=0.0):
 def _pipe_state(v, d, length, rho, mu, rough, sum_k, led=0.0):
     """Friction (hf), fittings by K (hk) and fittings by equivalent length Le/D (hle), all as head in m."""
     re = rho * v * d / mu
-    f = pp.friction_factor(re, d, rough)
+    f = pp.friction_factor(re, d, rough, method="swamee_jain")      # the Problem Solver shows the explicit formula so that it can be repeated by hand
     hv = v * v / (2 * G_TEXT)
     return {"re": re, "f": f, "hf": f * length / d * hv, "hk": sum_k * hv, "hle": f * led * hv}
 
@@ -372,7 +372,7 @@ def flow_from_head(head_m, d_mm, length_m, rho, mu_pas, rough_mm, sum_k=0.0, equ
 
 
 # ============================================================================ NPSH
-def npsh_check(p_vessel_kpa, basis, p_atm_kpa, level_m, hf_suction_m, p_vapor_kpa, rho, npshr_m, margin_m=0.5):
+def npsh_check(p_vessel_kpa, basis, p_atm_kpa, level_m, hf_suction_m, p_vapor_kpa, rho, npshr_m, margin_m=0.5, g=G_TEXT):
     """NPSH available at the pump suction, compared with NPSH required plus a safety margin.
 
     basis: 'absolute' or 'gauge' (the vessel pressure). level_m: liquid level above the pump centreline (negative for a suction lift).
@@ -388,7 +388,7 @@ def npsh_check(p_vessel_kpa, basis, p_atm_kpa, level_m, hf_suction_m, p_vapor_kp
     p_abs = p_vessel_kpa + (p_atm_kpa if basis == "gauge" else 0.0)
     if p_abs <= 0:
         raise InputError("The absolute suction pressure must be above zero. If the vessel pressure is a gauge reading, select 'gauge'.")
-    head_p = (p_abs - p_vapor_kpa) * 1000 / (rho * G_TEXT)
+    head_p = (p_abs - p_vapor_kpa) * 1000 / (rho * g)
     npsha = head_p + level_m - hf_suction_m
     needed = npshr_m + margin_m
     status = "ok" if npsha >= needed else ("cavitation" if npsha < npshr_m else "risk")
@@ -396,7 +396,7 @@ def npsh_check(p_vessel_kpa, basis, p_atm_kpa, level_m, hf_suction_m, p_vapor_kp
     if basis == "gauge":
         steps.append(_step("Absolute pressure at the suction vessel", r"P_{abs}=P_{gauge}+P_{atm}", f"P_abs = {p_vessel_kpa:g} + {p_atm_kpa:g} = {p_abs:.3f} kPa"))
     steps.append(_step("NPSH available", r"NPSH_a=\dfrac{P_{abs}-P_v}{\rho g}+z-h_{f,s}",
-                       f"NPSH_a = ({p_abs:.3f} − {p_vapor_kpa:.3f}) × 1000 / ({rho:g} × 9.81) + {level_m:g} − {hf_suction_m:g} = {head_p:.3f} + {level_m:g} − {hf_suction_m:g} = {npsha:.3f} m"))
+                       f"NPSH_a = ({p_abs:.3f} − {p_vapor_kpa:.3f}) × 1000 / ({rho:g} × {g:g}) + {level_m:g} − {hf_suction_m:g} = {head_p:.3f} + {level_m:g} − {hf_suction_m:g} = {npsha:.3f} m"))
     steps.append(_step("Compare with the NPSH required plus the safety margin", r"NPSH_a \ge NPSH_r + \text{margin}",
                        f"NPSH_a = {npsha:.3f} m  versus  NPSH_r + margin = {npshr_m:g} + {margin_m:g} = {needed:g} m  →  margin of safety = {npsha - npshr_m:+.3f} m over NPSH_r"))
     warnings = []

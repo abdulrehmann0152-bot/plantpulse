@@ -101,7 +101,9 @@ def test_the_figure_draws_those_lines_and_carries_the_annotation():
     notes = [a.text for a in fig.layout.annotations]
     assert any(t == "<b>Cold OUT 50 °C</b>" for t in notes) and any(t == "<b>Cold IN 20 °C</b>" for t in notes) and any("ΔT₁ = 50 K" in t for t in notes)
     explanation = [a for a in fig.layout.annotations if a.xref == "paper"]
-    assert len(explanation) == 1 and "cold line is reversed" in explanation[0].text and explanation[0].text.count("<br>") == 3
+    assert len(explanation) == 1 and "cold line is reversed" in explanation[0].text
+    assert " ".join(explanation[0].text.replace("<br>", " ").split()) == " ".join(hx.profile_note(p).split())         # wrapped for narrow screens, but the same words
+    assert all(len(line) <= 58 for line in explanation[0].text.split("<br>")) and fig.layout.margin.b >= 85 + len(explanation[0].text.split("<br>")) * 15
     par = hx_plot.profile_figure(hx.temperature_profile("parallel", 100, 60, 20, 50))
     assert any(a.text == "<b>Cold in 20 °C</b>" for a in par.layout.annotations) and not any("reversed" in a.text for a in par.layout.annotations)
 

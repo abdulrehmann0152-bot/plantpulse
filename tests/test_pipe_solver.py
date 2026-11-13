@@ -30,8 +30,10 @@ def test_total_head_and_power_follow_the_formulas():
 
 def test_agrees_with_the_pump_page_engine():
     r = sv.solve_pipe(80, 100, 150, RHO, MU, 0.045, 0)
-    p = pp.pipe_losses(80 / 3600, 0.1, 150, 0.045e-3, 0.0, RHO, MU)
+    p = pp.pipe_losses(80 / 3600, 0.1, 150, 0.045e-3, 0.0, RHO, MU, method="swamee_jain")      # the same explicit formula: exact agreement
     assert r["dp_friction_kpa"] * 1000 == pytest.approx(p["dp"], rel=1e-9) and r["f"] == pytest.approx(p["f"])
+    c = pp.pipe_losses(80 / 3600, 0.1, 150, 0.045e-3, 0.0, RHO, MU)                             # the Pump page default, Colebrook-White: a different, more rigorous method
+    assert r["f"] == pytest.approx(c["f"], rel=0.02) and r["dp_friction_kpa"] * 1000 == pytest.approx(c["dp"], rel=0.02)
 
 def test_laminar_flow_uses_64_over_re():
     r = sv.solve_pipe(1.0, 50, 30, 870, 0.2, 0.045, 0)

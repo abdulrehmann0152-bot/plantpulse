@@ -11,7 +11,7 @@ COEFFS = pp.fit_pump_curve([(0, 30), (200 / 3600, 25), (300 / 3600, 17)])
 ARGS = (HS, D, L, E)
 
 def test_water_properties_table_points():
-    assert pp.water_properties(20) == pytest.approx((998.2, 1.002e-3))
+    assert pp.water_properties(20) == pytest.approx((998.21, 1.002e-3), rel=1e-4)       # Kell density and the viscosity reference point at 20 deg C
     rho, mu = pp.water_properties(30)
     assert 992.2 < rho < 998.2 and 0.653e-3 < mu < 1.002e-3
 

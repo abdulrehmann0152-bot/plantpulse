@@ -192,7 +192,7 @@ def make_problem(kind, seed):
         t, d_mm, length, v = rng.choice([20, 30, 40]), rng.choice([50, 80, 100, 150]), rng.choice([50, 100, 200]), rng.choice([1.0, 1.5, 2.0, 2.5])
         d = d_mm / 1000.0; q_m3h = round(v * math.pi * d * d / 4 * 3600, 1)
         rho, mu = pp.water_properties(t)
-        r = pp.pipe_losses(q_m3h / 3600, d, length, 0.045e-3, 0.0, rho, mu)
+        r = pp.pipe_losses(q_m3h / 3600, d, length, 0.045e-3, 0.0, rho, mu, method="swamee_jain")      # the prompt says Swamee-Jain
         return {"kind": kind, "title": PROBLEM_TYPES[kind],
                 "prompt": f"Water at **{t} °C** (ρ = {rho:.1f} kg/m³, μ = {mu * 1000:.3f} mPa·s) flows at **{q_m3h} m³/h** through a commercial steel pipe "
                           f"(roughness 0.045 mm), **{d_mm} mm** inside diameter and **{length} m** long. Find Re, the friction factor (Swamee-Jain) and the friction pressure drop.",

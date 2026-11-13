@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 from calc_engine import heat_exchanger as hx
 from core import branding as b
+from core.plot_note import add_note
 
 
 def profile_figure(p):
@@ -29,10 +30,9 @@ def profile_figure(p):
         fig.add_shape(type="line", x0=x, x1=x, y0=lo, y1=hi, line=dict(color=b.GREY, width=1, dash="dot"))
         fig.add_annotation(x=x, y=(lo + hi) / 2, text=f"{name} = {d:g} K", showarrow=False, xanchor=anchor, xshift=8 if anchor == "left" else -8, font=dict(size=11, color=b.GREY))
 
-    fig.add_annotation(xref="paper", yref="paper", x=0, y=-0.30, xanchor="left", yanchor="top", showarrow=False, align="left",
-                       text="<br>".join(hx.profile_note(p).split("\n")), font=dict(size=12, color=b.NAVY), bgcolor=b.LIGHT, bordercolor=b.LINE, borderwidth=1, borderpad=8)
     fig.update_layout(
         xaxis=dict(title="Fraction of the heat duty transferred, measured from the hot-inlet end", range=[-0.02, 1.02],
                    tickmode="array", tickvals=[0, 0.25, 0.5, 0.75, 1], ticktext=["0<br>hot-inlet end", "0.25", "0.5", "0.75", "1<br>hot-outlet end"]),
-        yaxis_title="Temperature (°C)", template="plotly_white", legend=dict(orientation="h", y=1.1), margin=dict(t=30, b=175), height=560)
+        yaxis_title="Temperature (°C)", template="plotly_white", legend=dict(orientation="h", y=1.1))
+    add_note(fig, hx.profile_note(p).split("\n"), plot_height=360)
     return fig

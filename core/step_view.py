@@ -14,7 +14,11 @@ def show_steps(steps):
             st.latex(s["formula"])
             if s.get("variables"):
                 st.markdown("**Where**")
-                st.markdown("\n".join(f"- ${sym}$: {meaning}" for sym, meaning in s["variables"]))
+                if all(len(v) == 3 for v in s["variables"]):                         # symbol, meaning and unit: a small table
+                    rows = ["| Symbol | Meaning | Unit |", "|:--|:--|:--|"] + [f"| ${sym}$ | {meaning} | {unit} |" for sym, meaning, unit in s["variables"]]
+                    st.markdown("\n".join(rows))
+                else:
+                    st.markdown("\n".join(f"- ${sym}$: {meaning}" for sym, meaning in s["variables"]))
             if s.get("calc"):
                 for c in s["calc"]:
                     lines = [f"**{c['label']}**", f"- Substitution: `{c['substitution']}`"]
@@ -25,3 +29,5 @@ def show_steps(steps):
             else:
                 st.markdown("**Calculation**")
                 st.write(s["working"])
+            if s.get("interpretation"):
+                st.markdown(f"**Interpretation:** {s['interpretation']}")
